@@ -4,9 +4,11 @@ byte Passti::responseBuffer[MAX_FRAME_LEN];
 size_t Passti::responseLen = 0;
 bool Passti::responseReady = false;
 
-HardwareSerial& Passti::setupSerial(uint8_t serial_reg){
-    static HardwareSerial s(serial_reg);
-    return s;
+HardwareSerial* Passti::mSerial = nullptr;
+
+void Passti::setupSerial(int uartNum, int rx, int tx) {
+  Passti::mSerial = new HardwareSerial(uartNum);
+  Passti::mSerial->begin(38400, SERIAL_8N1, rx, tx);
 }
 
 std::map<String, String> Passti::sti_cmd = {
@@ -22,7 +24,7 @@ void Passti::sendCommand(const char* cmdHex, const char* dataHex, bool debug) {
     return;
   }
   if (debug) {
-    Serial.println('Start packing frame data . . .');
+    Serial.println("Start packing frame data . . .");
   }
   uint8_t dataLen = strlen(dataHex) / 2;
   uint8_t totalLen = 3 + dataLen;
@@ -47,26 +49,31 @@ void Passti::sendCommand(const char* cmdHex, const char* dataHex, bool debug) {
   for (uint8_t i = 2; i < idx; i++) lrc ^= frame[i];
   frame[idx++] = lrc;
   if (debug) {
-    Serial.println('Start sending frame data . . .');
+    Serial.println("Start sending frame data . . .");
   }
-  Passti::serial().write(frame, idx);
+  Passti::mSerial->write(frame, idx);
   if (debug) {
-    Serial.println('Data sent completed.');
+    Serial.print("Sending data : ");
+    for (size_t i = 0; i < idx; i++) {
+      Serial.printf("0x%02X ", frame[i]);
+    }
+    Serial.println();
+    Serial.println("Data sent completed.");
   }
 }
 
-void Passti::sendInit(const char* key) {
+void Passti::init(const char* key) {
   sendCommand(sti_cmd["init"].c_str(), key, true);
-  delay(50);
   Passti::readSerialFrame();
 }
 
-void Passti::sendInit(bool debug) {
+void Passti::init(bool debug) {
   const char* defaultKey = "758F40D46D95D1641448AA19B9282C05";
+  Serial.println("Masuk");
   if (debug){
-    Serial.println('Ready to init device . . .');
+    Serial.println("Ready to init device . . .");
   }
-  sendInit(defaultKey);
+  init(defaultKey);
 
 }
 
@@ -87,9 +94,9 @@ void Passti::readSerialFrame() {
   static size_t index = 0;
   static size_t expectedLen = 0;
 
-  while (Passti::serial().available()) {
-    byte b = Passti::serial().read();
-
+  while (Passti::mSerial->available()) {
+    byte b = Passti::mSerial->read();
+    Serial.println(b);
     switch (state) {
       case WAIT_STX:
         if (b == 0x02) {
