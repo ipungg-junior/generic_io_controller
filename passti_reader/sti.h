@@ -13,6 +13,7 @@ public:
   static byte responseBuffer[MAX_FRAME_LEN];
   static size_t responseLen;
   static bool responseReady;
+  static bool is_busy;
   static std::map<String, String> sti_cmd;
 
   static void setupSerial(int uartNum, int rx, int tx);
@@ -22,6 +23,8 @@ public:
   static void getUid();
   static void checkBalance();
   static void readSerialFrame();
+  static void parseResponse();
+  static bool isBusy();
 };
 
 #endif
