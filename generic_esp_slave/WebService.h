@@ -5,7 +5,7 @@
 #include "EthernetManager.h"
 
 // Define type for route handler (callback)
-typedef std::function<void(EthernetClient&, const String& path, const String& body)> RouteHandler;
+typedef std::function<void(EthernetClient&)> RouteHandler;
 
 class WebService {
   private:
