@@ -5,18 +5,16 @@
 
 void setup() {
   Serial.begin(115200);
-  Passti::serial().begin(38400, SERIAL_8N1, PASSTI_RX, PASSTI_TX);
-  delay(500);
+  delay(2000);
+  // Setup passti reader and init device
+  Passti::setupSerial(2, PASSTI_RX, PASSTI_TX);
+  Passti::init(true);
 
-  Passti::sendInit(true);
-  for (size_t i = 0; i < Passti::responseLen; i++) {
-    Serial.printf("0x%02X ", Passti::responseBuffer[i]);
-  }
-  
+
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  Serial.println("Main loop");
+  Passti::readSerialFrame();
   delay(1000);
+  Serial.println("Main loop");
 }
