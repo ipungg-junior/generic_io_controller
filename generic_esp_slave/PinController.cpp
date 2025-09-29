@@ -17,8 +17,9 @@ void PinController::setPin(int pinNum, int value, unsigned long interval) {
   bool found = false;
   for (int i = 0; i < pinCount; i++) {
     if (pinStates[i].pin == pinNum) {
-      // Store the original value for reversal
-      pinStates[i].originalValue = digitalRead(pinNum);  // Store current state as original
+      // For auto-reverse functionality, we typically want to return to LOW (0) state
+      // regardless of what the pin was previously set to
+      pinStates[i].originalValue = 0;  // Default to LOW as "original" state for reversal
       pinStates[i].value = value;
       pinStates[i].lastChange = millis();
       pinStates[i].interval = interval;
@@ -32,8 +33,8 @@ void PinController::setPin(int pinNum, int value, unsigned long interval) {
   // If not found, add new pin
   if (!found && pinCount < MAX_PINS) {
     pinStates[pinCount].pin = pinNum;
-    // Store the original value for reversal
-    pinStates[pinCount].originalValue = digitalRead(pinNum);  // Store current state as original
+    // For auto-reverse functionality, we typically want to return to LOW (0) state
+    pinStates[pinCount].originalValue = 0;  // Default to LOW as "original" state for reversal
     pinStates[pinCount].value = value;
     pinStates[pinCount].lastChange = millis();
     pinStates[pinCount].interval = interval;
