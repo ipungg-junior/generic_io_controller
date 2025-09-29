@@ -21,8 +21,10 @@ IPAddress whitelist[] = {
 struct PinState {
   int pin;
   int value;         // 0 = LOW, 1 = HIGH
-  unsigned long lastChange;  
+  int originalValue; // Original state before auto-reverse
+  unsigned long lastChange;
   unsigned long interval;    // in ms
+  bool isReversed;  // Flag to track if reversal has occurred
 };
 
 const int MAX_PINS = 20;   // adjust for your project
@@ -40,9 +42,12 @@ void handleSetPin(int pinNum, int value, unsigned long interval) {
   bool found = false;
   for (int i = 0; i < pinCount; i++) {
     if (pinStates[i].pin == pinNum) {
+      // Store the original value for reversal
+      pinStates[i].originalValue = digitalRead(pinNum); // Store current state as original
       pinStates[i].value = value;
       pinStates[i].lastChange = millis();
       pinStates[i].interval = interval;
+      pinStates[i].isReversed = false; // Reset reversal flag
       digitalWrite(pinNum, value ? HIGH : LOW);
       found = true;
       break;
@@ -52,9 +57,12 @@ void handleSetPin(int pinNum, int value, unsigned long interval) {
   // if not found, add new pin
   if (!found && pinCount < MAX_PINS) {
     pinStates[pinCount].pin = pinNum;
+    // Store the original value for reversal
+    pinStates[pinCount].originalValue = digitalRead(pinNum); // Store current state as original
     pinStates[pinCount].value = value;
     pinStates[pinCount].lastChange = millis();
     pinStates[pinCount].interval = interval;
+    pinStates[pinCount].isReversed = false; // Reset reversal flag
 
     pinMode(pinNum, OUTPUT);
     digitalWrite(pinNum, value);
@@ -65,15 +73,12 @@ void handleSetPin(int pinNum, int value, unsigned long interval) {
 
 void relayOff(EthernetClient& client, const String& path, const String& body) {
   Serial.println("relayOff executed");
-
-
   digitalWrite(32, LOW);
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/plain");
   client.println("Connection: close");
   client.println();
   client.print("{\"status\":\"OFF\",\"relay\":");
-  client.print(body);
   client.print("}");
 }
 
@@ -277,9 +282,13 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
     pinMode(pin, OUTPUT);
     digitalWrite(pin, setVal);
 
-    if (!parser.hasKey("auto_reverse")) {
+    // Check if auto_reverse parameter exists
+    if (parser.hasKey("auto_reverse")) {
       int interVal = parser.getInt("auto_reverse");
       handleSetPin(pin, setVal, interVal);
+    } else {
+      // No auto reverse, just set the pin
+      handleSetPin(pin, setVal, 0);
     }
 
 
@@ -316,12 +325,12 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
 void io_routine(){
   unsigned long now = millis();
   for (int i = 0; i < pinCount; i++) {
-    if (pinStates[i].interval > 0 && (now - pinStates[i].lastChange >= pinStates[i].interval)) {
-      // change state ONCE
-      digitalWrite(pinStates[i].pin, pinStates[i].value ? HIGH : LOW);
+    if (pinStates[i].interval > 0 && (now - pinStates[i].lastChange >= pinStates[i].interval) && !pinStates[i].isReversed) {
+      // Revert to original state ONCE
+      digitalWrite(pinStates[i].pin, pinStates[i].originalValue);
 
-      // mark as done (reset interval so it won’t repeat)
-      pinStates[i].interval = 0;  
+      // Mark as reversed so it won't repeat
+      pinStates[i].isReversed = true;
     }
   }
 }
