@@ -9,12 +9,13 @@ void WebService::begin() {
 }
 
 void WebService::on(const String& path, RouteHandler handler) {
-  routes.push_back({path, handler});
+  routes[path] = handler;
 }
 
 void WebService::handleClient() {
-  EthernetClient client = server.available();
-  if (client) {
+  EthernetClient availableClient = server.available();
+  if (availableClient) {
+    EthernetClient& client = availableClient;
     IPAddress clientIP = client.remoteIP();
     if (!eth.isAllowed(clientIP)) {
       client.println("HTTP/1.1 403 Forbidden");
@@ -23,49 +24,56 @@ void WebService::handleClient() {
       client.println();
       client.println("Access Denied");
       client.stop();
+      Serial.println("Request denied (block IP / not whitelist)");
       return;
     }
 
-    String request = readRequest(client);
-    String path = parsePath(request);
-    bool handled = false;
+    String method, path, body;
+    Serial.println("Request in");
+    readRequest(client, method, path, body);
 
-    for (auto& route : routes) {
-      if (path == route.path) {
-        route.handler(client);  // Execute registered handler
-        handled = true;
-        break;
-      }
-    }
-
-    if (!handled) {
+    if (routes.find(path) != routes.end()) {
+      Serial.println("Calling handler");
+      routes[path](client, path, body);
+      client.stop();
+    } else {
       client.println("HTTP/1.1 404 Not Found");
       client.println("Content-Type: text/plain");
       client.println("Connection: close");
       client.println();
-      client.println("404 - Not Found");
-    }
-
-    client.stop();
-  }
-}
-
-String WebService::readRequest(EthernetClient& client) {
-  String req = "";
-  unsigned long timeout = millis();
-  while (client.connected() && (millis() - timeout < 1000)) {
-    if (client.available()) {
-      char c = client.read();
-      req += c;
-      if (req.endsWith("\r\n\r\n")) break;
+      client.println("Not Found");
+      client.stop();
     }
   }
-  return req;
 }
 
-String WebService::parsePath(const String& request) {
-  int start = request.indexOf("GET ") + 4;
-  int end = request.indexOf(' ', start);
-  if (start == -1 || end == -1) return "/";
-  return request.substring(start, end);
+String WebService::readRequest(EthernetClient& client, String &method, String &path, String &body) {
+  String requestLine = client.readStringUntil('\r');
+  client.readStringUntil('\n');
+
+  int firstSpace = requestLine.indexOf(' ');
+  int secondSpace = requestLine.indexOf(' ', firstSpace + 1);
+
+  if (firstSpace > 0 && secondSpace > 0) {
+    method = requestLine.substring(0, firstSpace);
+    path   = requestLine.substring(firstSpace + 1, secondSpace);
+  }
+
+  Serial.print(method);
+  Serial.print(" ");
+  Serial.println(path);
+  // Skip headers
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r" || line.length() == 0) break;
+  }
+
+  // Read body
+  body = "";
+  while (client.available()) {
+    body += (char)client.read();
+  }
+  Serial.println(body);
+  return requestLine;
 }
+

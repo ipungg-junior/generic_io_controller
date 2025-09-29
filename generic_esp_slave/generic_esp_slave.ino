@@ -1,6 +1,9 @@
 #include <SPI.h>
 #include "EthernetManager.h"
 #include "WebService.h"
+#include "Parser.h"
+
+#include <ArduinoJson.h>
 
 // Config
 byte mac[] = { 0xDE, 0xAA, 0xBE, 0xEF, 0x00, 0x02 };
@@ -15,6 +18,16 @@ IPAddress whitelist[] = {
     IPAddress(10, 251, 2, 103)
 };
 
+struct PinState {
+  int pin;
+  int value;         // 0 = LOW, 1 = HIGH
+  unsigned long lastChange;  
+  unsigned long interval;    // in ms
+};
+
+const int MAX_PINS = 20;   // adjust for your project
+PinState pinStates[MAX_PINS];
+int pinCount = 0;
 
 String restartKey = "";   // temp key
 
@@ -22,24 +35,50 @@ String restartKey = "";   // temp key
 EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 WebService http(eth, 80);
 
-String generateRandomKey() {
-  String key = "";
-  for (int i = 0; i < 8; i++) {
-    key += String(random(0, 16), HEX);  // random hex
+void handleSetPin(int pinNum, int value, unsigned long interval) {
+  // check if pin already exists
+  bool found = false;
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].pin == pinNum) {
+      pinStates[i].value = value;
+      pinStates[i].lastChange = millis();
+      pinStates[i].interval = interval;
+      digitalWrite(pinNum, value ? HIGH : LOW);
+      found = true;
+      break;
+    }
   }
-  return key;
+
+  // if not found, add new pin
+  if (!found && pinCount < MAX_PINS) {
+    pinStates[pinCount].pin = pinNum;
+    pinStates[pinCount].value = value;
+    pinStates[pinCount].lastChange = millis();
+    pinStates[pinCount].interval = interval;
+
+    pinMode(pinNum, OUTPUT);
+    digitalWrite(pinNum, value);
+
+    pinCount++;
+  }
 }
 
-void relayOff(EthernetClient& client) {
+void relayOff(EthernetClient& client, const String& path, const String& body) {
+  Serial.println("relayOff executed");
+
+
   digitalWrite(32, LOW);
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/plain");
   client.println("Connection: close");
   client.println();
-  client.println("Relay ON");
+  client.print("{\"status\":\"OFF\",\"relay\":");
+  client.print(body);
+  client.print("}");
 }
 
-void relayOn(EthernetClient& client) {
+void relayOn(EthernetClient& client, const String& path, const String& body) {
+  Serial.println("relayOn executed");
   digitalWrite(32, HIGH);
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/plain");
@@ -48,7 +87,8 @@ void relayOn(EthernetClient& client) {
   client.println("Relay OFF");
 }
 
-void servLanding(EthernetClient& client){
+void servLanding(EthernetClient& client, const String& path, const String& body){
+    Serial.println(" executed");
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: text/html");
     client.println("Connection: close"); 
@@ -188,13 +228,104 @@ void servLanding(EthernetClient& client){
     client.println("</body></html>");
 }
 
-void restartController(EthernetClient& client){
+void restartController(EthernetClient& client, const String& path, const String& body){
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
   client.println("Connection: close"); 
   client.println();
   ESP.restart();
 }
+
+void io_handler(EthernetClient& client, const String& path, const String& body) {
+  Parser parser(body);
+
+  if (!parser.isValid()) {
+    client.println("HTTP/1.1 400 Bad Request");
+    client.println("Content-Type: text/plain");
+    client.println("Connection: close");
+    client.println();
+    client.println("Invalid JSON");
+    return;
+  }
+
+  String cmd = parser.getCommand();
+
+  if (cmd == "set_pin") {
+    if (!parser.hasKey("pin_number")) {
+      client.println("HTTP/1.1 400 Bad Request");
+      client.println("Content-Type: application/json");
+      client.println("Connection: close");
+      client.println();
+      client.print("{\"status\":false,");
+      client.print("\"message\":\"Please set your pin!\"}");
+
+      return;
+    }
+    int pin = parser.getInt("pin_number");
+    if (!parser.hasKey("value")) {
+      client.println("HTTP/1.1 400 Bad Request");
+      client.println("Content-Type: application/json");
+      client.println("Connection: close");
+      client.println();
+      client.print("{\"status\":false,");
+      client.print("\"message\":\"Please set value!\"}");
+      return;
+    }
+    
+    int setVal = parser.getInt("value");
+    
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, setVal);
+
+    if (!parser.hasKey("auto_reverse")) {
+      int interVal = parser.getInt("auto_reverse");
+      handleSetPin(pin, setVal, interVal);
+    }
+
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+
+    client.print("{");
+    client.print("\"status\":true,");
+    client.print("\"pin_num\":");
+    client.print(pin);
+    client.print(", \"message\":\"Pin io setting up completed\"");
+    client.print("}");
+
+  } 
+  else if (cmd == "restart_all") {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/plain");
+    client.println("Connection: close");
+    client.println();
+    client.println("Restarting...");
+    ESP.restart();
+  } 
+  else {
+    client.println("HTTP/1.1 400 Bad Request");
+    client.println("Content-Type: text/plain");
+    client.println("Connection: close");
+    client.println();
+    client.println("Unknown command");
+  }
+}
+
+void io_routine(){
+  unsigned long now = millis();
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].interval > 0 && (now - pinStates[i].lastChange >= pinStates[i].interval)) {
+      // change state ONCE
+      digitalWrite(pinStates[i].pin, pinStates[i].value ? HIGH : LOW);
+
+      // mark as done (reset interval so it won’t repeat)
+      pinStates[i].interval = 0;  
+    }
+  }
+}
+
 
 void setup() {
   // put your setup code here, to run once:
@@ -206,14 +337,17 @@ void setup() {
 
   // Setup route handler
   http.on("/", servLanding);
+  http.on("/relay", io_handler);
   http.on("/relay/on", relayOn);
   http.on("/relay/off", relayOff);
-  http.on("/force-restart", restartController);
 
 }
 
 void loop() {
   // waiting client forever
   http.handleClient();
+
+  // IO routine auto reverse
+  io_routine();
 
 }

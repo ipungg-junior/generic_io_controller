@@ -1,20 +1,16 @@
 #ifndef WEB_SERVICE_H
 #define WEB_SERVICE_H
 
+#include <iostream>
+#include <map>
 #include <Arduino.h>
 #include "EthernetManager.h"
 
 // Define type for route handler (callback)
-typedef std::function<void(EthernetClient&)> RouteHandler;
+typedef std::function<void(EthernetClient& client, const String& path, const String& body)> RouteHandler;
 
 class WebService {
   private:
-
-    // Route structure
-    struct Route {
-        String path;
-        RouteHandler handler;
-      };
 
     // Ethernet server which handling HTTP protocol (from <Ethernet.h>)
     EthernetServer server;
@@ -22,21 +18,23 @@ class WebService {
     // Ethernet connection object (from ethernet manager)
     EthernetManager& eth;
     
-    // Store mapping path
-    std::vector<Route> routes;
+    // Temporary storage for mapping path and handler/callback
+    std::map<String, RouteHandler> routes;
 
-    // Function
-    String readRequest(EthernetClient& client);
-    String parsePath(const String& request);
-    void serveResponse(EthernetClient& client, const String& request);
-
+    // unpacking request
+    String readRequest(EthernetClient& client, String &method, String &path, String &body);
 
   public:
     WebService(EthernetManager& ethernet, int port);
+    // Begin http server
     void begin();
+
+    // Handling client request
     void handleClient();
-    // Add route
+
+    // Register route and handler
     void on(const String& path, RouteHandler handler);
+    
     
 };
 
