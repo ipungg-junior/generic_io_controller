@@ -2,6 +2,7 @@
 #include "EthernetManager.h"
 #include "WebService.h"
 #include "Parser.h"
+#include "PinController.h"
 
 #include <ArduinoJson.h>
 
@@ -18,58 +19,12 @@ IPAddress whitelist[] = {
     IPAddress(10, 251, 2, 103)
 };
 
-struct PinState {
-  int pin;
-  int value;         // 0 = LOW, 1 = HIGH
-  int originalValue; // Original state before auto-reverse
-  unsigned long lastChange;
-  unsigned long interval;    // in ms
-  bool isReversed;  // Flag to track if reversal has occurred
-};
-
-const int MAX_PINS = 20;   // adjust for your project
-PinState pinStates[MAX_PINS];
-int pinCount = 0;
-
 String restartKey = "";   // temp key
 
 // Ethernet connection object
 EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 WebService http(eth, 80);
-
-void handleSetPin(int pinNum, int value, unsigned long interval) {
-  // check if pin already exists
-  bool found = false;
-  for (int i = 0; i < pinCount; i++) {
-    if (pinStates[i].pin == pinNum) {
-      // Store the original value for reversal
-      pinStates[i].originalValue = digitalRead(pinNum); // Store current state as original
-      pinStates[i].value = value;
-      pinStates[i].lastChange = millis();
-      pinStates[i].interval = interval;
-      pinStates[i].isReversed = false; // Reset reversal flag
-      digitalWrite(pinNum, value ? HIGH : LOW);
-      found = true;
-      break;
-    }
-  }
-
-  // if not found, add new pin
-  if (!found && pinCount < MAX_PINS) {
-    pinStates[pinCount].pin = pinNum;
-    // Store the original value for reversal
-    pinStates[pinCount].originalValue = digitalRead(pinNum); // Store current state as original
-    pinStates[pinCount].value = value;
-    pinStates[pinCount].lastChange = millis();
-    pinStates[pinCount].interval = interval;
-    pinStates[pinCount].isReversed = false; // Reset reversal flag
-
-    pinMode(pinNum, OUTPUT);
-    digitalWrite(pinNum, value);
-
-    pinCount++;
-  }
-}
+PinController pinController;
 
 void relayOff(EthernetClient& client, const String& path, const String& body) {
   Serial.println("relayOff executed");
@@ -96,7 +51,7 @@ void servLanding(EthernetClient& client, const String& path, const String& body)
     Serial.println(" executed");
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: text/html");
-    client.println("Connection: close"); 
+    client.println("Connection: close");
     client.println();
     
     client.println("<!DOCTYPE HTML>");
@@ -236,7 +191,7 @@ void servLanding(EthernetClient& client, const String& path, const String& body)
 void restartController(EthernetClient& client, const String& path, const String& body){
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
-  client.println("Connection: close"); 
+  client.println("Connection: close");
   client.println();
   ESP.restart();
 }
@@ -279,18 +234,14 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
     
     int setVal = parser.getInt("value");
     
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, setVal);
-
     // Check if auto_reverse parameter exists
     if (parser.hasKey("auto_reverse")) {
       int interVal = parser.getInt("auto_reverse");
-      handleSetPin(pin, setVal, interVal);
+      pinController.setPin(pin, setVal, interVal);
     } else {
       // No auto reverse, just set the pin
-      handleSetPin(pin, setVal, 0);
+      pinController.setPin(pin, setVal, 0);
     }
-
 
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: application/json");
@@ -304,7 +255,7 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
     client.print(", \"message\":\"Pin io setting up completed\"");
     client.print("}");
 
-  } 
+  }
   else if (cmd == "restart_all") {
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: text/plain");
@@ -312,7 +263,7 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
     client.println();
     client.println("Restarting...");
     ESP.restart();
-  } 
+  }
   else {
     client.println("HTTP/1.1 400 Bad Request");
     client.println("Content-Type: text/plain");
@@ -321,20 +272,6 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
     client.println("Unknown command");
   }
 }
-
-void io_routine(){
-  unsigned long now = millis();
-  for (int i = 0; i < pinCount; i++) {
-    if (pinStates[i].interval > 0 && (now - pinStates[i].lastChange >= pinStates[i].interval) && !pinStates[i].isReversed) {
-      // Revert to original state ONCE
-      digitalWrite(pinStates[i].pin, pinStates[i].originalValue);
-
-      // Mark as reversed so it won't repeat
-      pinStates[i].isReversed = true;
-    }
-  }
-}
-
 
 void setup() {
   // put your setup code here, to run once:
@@ -356,7 +293,7 @@ void loop() {
   // waiting client forever
   http.handleClient();
 
-  // IO routine auto reverse
-  io_routine();
+  // IO routine
+  pinController.processAutoReverse();
 
 }
