@@ -24,6 +24,12 @@ class PinController {
     // Add or update a pin with specified value and auto-reverse interval
     void setPin(int pinNum, int value, unsigned long interval = 0);
     
+    // Set all GPIO pins (0-39) to LOW
+    void offAll();
+    
+    // Set all GPIO pins (0-39) to HIGH
+    void onAll();
+    
     // Process auto-reverse for all pins
     void processAutoReverse();
     

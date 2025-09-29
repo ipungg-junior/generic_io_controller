@@ -3,7 +3,6 @@
 #include "WebService.h"
 #include "Parser.h"
 #include "PinController.h"
-
 #include <ArduinoJson.h>
 
 // Config
@@ -26,7 +25,7 @@ WebService http(eth, 80);
 PinController pinController;
 
 
-void io_handler(EthernetClient& client, const String& path, const String& body) {
+void gpioHandling(EthernetClient& client, const String& path, const String& body) {
   Parser parser(body);
 
   if (!parser.isValid()) {
@@ -88,12 +87,11 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
   }
   else if (cmd == "off_all") {
     client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/plain");
+    client.println("Content-Type: application/json");
     client.println("Connection: close");
     client.println();
 
-    // create loop to set all pin to 0 or off state
-    // call function here (pinControler.off_all()) even pin that not registered
+    pinController.offAll();
 
     client.print("{");
     client.print("\"status\":true,");
@@ -102,16 +100,15 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
   }
   else if (cmd == "on_all") {
     client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/plain");
+    client.println("Content-Type: application/json");
     client.println("Connection: close");
     client.println();
 
-    // create loop to set all pin to 1 or on state
-    // call function here (pinControler.on_all()) even pin that not registered
+    pinController.onAll();
 
     client.print("{");
     client.print("\"status\":true,");
-    client.print("\"message\":\"Set all GPIO to 0 (off)\"");
+    client.print("\"message\":\"Set all GPIO to 1 (on)\"");
     client.print("}");
   }
   else {
@@ -121,9 +118,7 @@ void io_handler(EthernetClient& client, const String& path, const String& body) 
     client.println();
     client.print("{");
     client.print("\"status\":false,");
-    client.print("\"pin_num\":");
-    client.print(pin);
-    client.print(", \"message\":\"Unknown command on GPIO\"");
+    client.print("\"message\":\"Unknown command on GPIO\"");
     client.print("}");
   }
 }
@@ -148,9 +143,7 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
     client.println();
     client.print("{");
     client.print("\"status\":true,");
-    client.print("\"pin_num\":");
-    client.print(pin);
-    client.print(", \"message\":\"Trying to restart, see you :)\"");
+    client.print("\"message\":\"Trying to restart, see you :)\"");
     client.print("}");
     ESP.restart();
   }
@@ -161,9 +154,7 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
     client.println();
     client.print("{");
     client.print("\"status\":false,");
-    client.print("\"pin_num\":");
-    client.print(pin);
-    client.print(", \"message\":\"Unknown command on core\"");
+    client.print("\"message\":\"Unknown command on core\"");
     client.print("}");
   }
 }
@@ -178,9 +169,7 @@ void setup() {
 
   // Setup route handler
   http.on("/core", coreHandling);
-  http.on("/relay", io_handler);
-  http.on("/relay/on", relayOn);
-  http.on("/relay/off", relayOff);
+  http.on("/gpio", gpioHandling);
 
 }
 

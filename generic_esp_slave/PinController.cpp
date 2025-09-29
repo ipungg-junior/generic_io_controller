@@ -47,6 +47,50 @@ void PinController::setPin(int pinNum, int value, unsigned long interval) {
   }
 }
 
+void PinController::offAll() {
+  // Set all GPIO pins (0-39) to LOW
+  for (int pin = 0; pin < 40; pin++) {
+    // Skip pins that are typically reserved or shouldn't be used
+    if (pin == 6 || pin == 7 || pin == 8 || pin == 9 || pin == 10 || pin == 11) {
+      continue; // These pins are often reserved for internal use
+    }
+    if (pin >= 12 && pin <= 15) {
+      continue; // These pins are often reserved for internal use
+    }
+    if (pin == 20 || pin == 24 || pin == 28 || pin == 29 || pin == 30 || pin == 31 || pin == 32) {
+      continue; // These pins are often reserved for internal use
+    }
+    if (pin >= 34 && pin <= 39) {
+      continue; // These pins are often reserved for internal use (34-39 are input only)
+    }
+    
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, LOW);
+  }
+}
+
+void PinController::onAll() {
+  // Set all GPIO pins (0-39) to HIGH
+  for (int pin = 0; pin < 40; pin++) {
+    // Skip pins that are typically reserved or shouldn't be used
+    if (pin == 6 || pin == 7 || pin == 8 || pin == 9 || pin == 10 || pin == 11) {
+      continue; // These pins are often reserved for internal use
+    }
+    if (pin >= 12 && pin <= 15) {
+      continue; // These pins are often reserved for internal use
+    }
+    if (pin == 20 || pin == 24 || pin == 28 || pin == 29 || pin == 30 || pin == 31 || pin == 32) {
+      continue; // These pins are often reserved for internal use
+    }
+    if (pin >= 34 && pin <= 39) {
+      continue; // These pins are often reserved for internal use (34-39 are input only)
+    }
+    
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, HIGH);
+  }
+}
+
 void PinController::processAutoReverse() {
   unsigned long now = millis();
   for (int i = 0; i < pinCount; i++) {
