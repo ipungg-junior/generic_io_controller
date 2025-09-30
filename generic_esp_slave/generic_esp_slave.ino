@@ -171,6 +171,10 @@ void setup() {
   http.on("/core", coreHandling);
   http.on("/gpio", gpioHandling);
 
+  // Setup button pins (example: pin 15 as button input)
+  // You can add more buttons by calling pinController.setPinAsInput(pinNumber)
+  pinController.setPinAsInput(13);
+  pinController.setPinAsInput(14);
 }
 
 void loop() {
@@ -179,5 +183,17 @@ void loop() {
 
   // IO routine
   pinController.processAutoReverse();
+  
+  // Scan for button presses
+  pinController.scanButtons();
 
+  if (pinController.getState(13) == 1) {
+    // Button on pin 15 is pressed, do something
+    Serial.println("Button 13 pressed");
+    pinController.setPin(32, 1, 5000);
+  }
+  if (pinController.getState(14) == 1) {
+    // Button on pin 15 is pressed, do something
+    pinController.setPin(32, 1, 5000);
+  }
 }

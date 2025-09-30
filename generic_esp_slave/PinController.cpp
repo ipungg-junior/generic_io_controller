@@ -9,6 +9,10 @@ PinController::PinController() : pinCount(0) {
     pinStates[i].lastChange = 0;
     pinStates[i].interval = 0;
     pinStates[i].isReversed = false;
+    pinStates[i].isInput = false;
+    pinStates[i].lastButtonState = HIGH;  // Assume button not pressed initially
+    pinStates[i].currentButtonState = HIGH;
+    pinStates[i].lastDebounceTime = 0;
   }
 }
 
@@ -45,6 +49,89 @@ void PinController::setPin(int pinNum, int value, unsigned long interval) {
 
     pinCount++;
   }
+}
+
+void PinController::setPinAsInput(int pinNum) {
+  // Check if pin already exists
+  bool found = false;
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].pin == pinNum) {
+      // Update existing pin to be input
+      pinStates[i].isInput = true;
+      pinMode(pinNum, INPUT_PULLUP);  // Use pull-up resistor for buttons
+      // Initialize button states
+      pinStates[i].lastButtonState = HIGH;
+      pinStates[i].currentButtonState = HIGH;
+      pinStates[i].lastDebounceTime = 0;
+      found = true;
+      break;
+    }
+  }
+
+  // If not found, add new pin as input
+  if (!found && pinCount < MAX_PINS) {
+    pinStates[pinCount].pin = pinNum;
+    pinStates[pinCount].isInput = true;
+    pinMode(pinNum, INPUT_PULLUP);  // Use pull-up resistor for buttons
+    // Initialize button states
+    pinStates[pinCount].lastButtonState = HIGH;
+    pinStates[pinCount].currentButtonState = HIGH;
+    pinStates[pinCount].lastDebounceTime = 0;
+    // Initialize other fields to default values
+    pinStates[pinCount].value = 0;
+    pinStates[pinCount].originalValue = 0;
+    pinStates[pinCount].lastChange = 0;
+    pinStates[pinCount].interval = 0;
+    pinStates[pinCount].isReversed = false;
+    
+    pinCount++;
+  }
+}
+
+void PinController::scanButtons() {
+  // Scan all input pins for button presses
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].isInput) {
+      // Read the button state
+      int reading = digitalRead(pinStates[i].pin);
+      
+      // Check if button state has changed
+      if (reading != pinStates[i].lastButtonState) {
+        // Reset the debouncing timer
+        pinStates[i].lastDebounceTime = millis();
+      }
+      
+      // If enough time has passed since the last state change, update the current state
+      if ((millis() - pinStates[i].lastDebounceTime) > 50) {  // 50ms debounce delay
+        // If the button state has changed
+        if (reading != pinStates[i].currentButtonState) {
+          pinStates[i].currentButtonState = reading;
+        }
+      }
+      
+      // Save the reading for next iteration
+      pinStates[i].lastButtonState = reading;
+    }
+  }
+}
+
+int PinController::getState(int pinNum) const {
+  // Check if pin exists in our tracking system
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].pin == pinNum) {
+      if (pinStates[i].isInput) {
+        // For input pins, return the current button state
+        return pinStates[i].currentButtonState == LOW ? 1 : 0;  // Button pressed = 1, not pressed = 0
+      } else {
+        // For output pins, return the current value
+        return pinStates[i].value;
+      }
+    }
+  }
+  
+  // If pin is not in our tracking system, read it directly
+  // This could be for pins that were set outside of our controller
+  return digitalRead(pinNum);
 }
 
 void PinController::offAll() {
