@@ -3,6 +3,7 @@
 #include "WebService.h"
 #include "Parser.h"
 #include "PinController.h"
+#include "MySQLConnector.h"
 #include <ArduinoJson.h>
 
 // Config
@@ -19,10 +20,14 @@ IPAddress whitelist[] = {
     IPAddress(10, 251, 2, 103)
 };
 
+// MySql ip address
+IPAddress mysql_address(192, 168, 1, 100);  // MySQL server IP
+
 // Ethernet connection object
 EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 WebService http(eth, 80);
 PinController pinController;
+MySQLConnector mysql;
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -175,6 +180,14 @@ void setup() {
   // You can add more buttons by calling pinController.setPinAsInput(pinNumber)
   pinController.setPinAsInput(13);
   pinController.setPinAsInput(14);
+  
+  // Setup MySQL connection (example configuration)
+  // Replace with your actual MySQL server IP, credentials, and database name
+  if (mysql.connect(mysql_address, 3306, "user", "password", "database")) {
+    Serial.println("Connected to MySQL database");
+  } else {
+    Serial.println("Failed to connect to MySQL database");
+  }
 }
 
 void loop() {
@@ -195,5 +208,16 @@ void loop() {
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
     pinController.setPin(32, 1, 5000);
+  }
+  
+  // Example of using MySQL connector in loop
+  // This could be used for logging button presses or other events
+  static unsigned long lastQueryTime = 0;
+  if (millis() - lastQueryTime > 10000) {  // Every 10 seconds
+    if (mysql.connected()) {
+      // Example query to insert data
+      mysql.query("INSERT INTO events (event_type, timestamp) VALUES ('system_check', NOW())");
+    }
+    lastQueryTime = millis();
   }
 }
