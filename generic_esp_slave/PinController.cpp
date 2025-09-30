@@ -106,14 +106,6 @@ void PinController::scanButtons() {
         // If the button state has changed
         if (reading != pinStates[i].currentButtonState) {
           pinStates[i].currentButtonState = reading;
-          
-          // Only trigger on button press (falling edge, from HIGH to LOW)
-          // Since we're using INPUT_PULLUP, button press = LOW, button release = HIGH
-          if (pinStates[i].currentButtonState == LOW) {
-            // Button pressed - print to Serial
-            Serial.print("Button pressed on pin ");
-            Serial.println(pinStates[i].pin);
-          }
         }
       }
       
