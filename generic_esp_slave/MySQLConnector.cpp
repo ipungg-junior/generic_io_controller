@@ -1,7 +1,7 @@
 #include "MySQLConnector.h"
 #include <Ethernet.h>
 
-MySQLConnector::MySQLConnector() : connection(nullptr), cursor(nullptr), isConnected(false), lastQuery(nullptr) {
+MySQLConnector::MySQLConnector() : connection(nullptr), client(nullptr), cursor(nullptr), isConnected(false), lastQuery(nullptr) {
 }
 
 MySQLConnector::~MySQLConnector() {
@@ -15,17 +15,22 @@ bool MySQLConnector::connect(const IPAddress& server, int port, const char* user
   // Close any existing connection
   close();
   
-  // Create a new connection
-  connection = new MySQL_Connection(new Client_TCPSOCKET(server, port));
+  // Create a new EthernetClient
+  client = new EthernetClient();
   
-  // Try to connect
-  if (connection->connect(user, password, database)) {
+  // Create a new connection
+  connection = new MySQL_Connection(client);
+  
+  // Connect to MySQL server
+  if (connection->connect(server, port, user, password, database)) {
     isConnected = true;
     return true;
   } else {
     isConnected = false;
     delete connection;
     connection = nullptr;
+    delete client;
+    client = nullptr;
     return false;
   }
 }
@@ -87,6 +92,12 @@ void MySQLConnector::close() {
     connection->close();
     delete connection;
     connection = nullptr;
+  }
+  
+  // Delete client if it exists
+  if (client) {
+    delete client;
+    client = nullptr;
   }
   
   isConnected = false;

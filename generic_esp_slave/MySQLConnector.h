@@ -2,6 +2,7 @@
 #define MYSQL_CONNECTOR_H
 
 #include <Arduino.h>
+#include <Ethernet.h>
 #include <MySQL_Connection.h>
 #include <MySQL_Cursor.h>
 #include <stdarg.h>
@@ -10,6 +11,7 @@
 class MySQLConnector {
 private:
   MySQL_Connection* connection;
+  EthernetClient* client;
   MySQL_Cursor* cursor;
   bool isConnected;
   char* lastQuery;

@@ -226,11 +226,15 @@ void loop() {
                    
       // Example of using SELECT queries to retrieve data
       if (mysql.query("SELECT id, name, value FROM config WHERE active=1")) {
-        // Fetch and process rows
-        while (mysql.fetchRow()) {
-          int id = mysql.getInt(0);
-          const char* name = mysql.getString(1);
-          int value = mysql.getInt(2);
+        // Get cursor to process results
+        MySQL_Cursor* cursor = mysql.getCursor();
+        
+        // Process rows
+        while (cursor->get_next_row()) {
+          // Get column values
+          long id = cursor->get_long(0);
+          const char* name = cursor->get_string(1);
+          long value = cursor->get_long(2);
           
           Serial.print("Config - ID: ");
           Serial.print(id);
