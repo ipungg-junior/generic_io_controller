@@ -63,6 +63,7 @@ bool MySQLConnector::query(const char* sql) {
     // Get column information (required by MySQL library)
     column_names* cols = currentCursor->get_columns();
     
+    // cols is now stored in the cursor and can be accessed later
     return true;
   } else {
     // For non-SELECT queries, execute directly
@@ -150,6 +151,47 @@ const char* MySQLConnector::getString(int columnIndex) {
   return currentRow->values[columnIndex];
 }
 
+column_names* MySQLConnector::getColumns() {
+  if (!currentCursor) {
+    return nullptr;
+  }
+  
+  // Note: We already called get_columns() in query() method
+  // This method is provided for consistency but may not be needed
+  return currentCursor->get_columns();
+}
+
+int MySQLConnector::getColumnCount() {
+  if (!currentCursor) {
+    return 0;
+  }
+  
+  column_names* cols = currentCursor->get_columns();
+  if (!cols) {
+    return 0;
+  }
+  
+  return cols->num_fields;
+}
+
+bool MySQLConnector::hasRows() {
+  if (!currentCursor) {
+    return false;
+  }
+  
+  // Try to fetch the first row to check if there are any rows
+  row_values* firstRow = currentCursor->get_next_row();
+  
+  // If we got a row, we have rows
+  if (firstRow != nullptr) {
+    // Store the first row as the current row
+    currentRow = firstRow;
+    return true;
+  }
+  
+  return false;
+}
+
 bool MySQLConnector::queryf(const char* format, ...) {
   if (!isConnected || !connection) {
     Serial.println("Not connected to database");
@@ -187,6 +229,7 @@ bool MySQLConnector::queryf(const char* format, ...) {
     // Get column information (required by MySQL library)
     column_names* cols = currentCursor->get_columns();
     
+    // cols is now stored in the cursor and can be accessed later
     return true;
   } else {
     // For non-SELECT queries, execute directly
