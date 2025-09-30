@@ -1,13 +1,14 @@
 #include "MySQLConnector.h"
 #include <Ethernet.h>
-#include <stdarg.h>
-#include <stdio.h>
 
-MySQLConnector::MySQLConnector() : connection(nullptr), cursor(nullptr), isConnected(false) {
+MySQLConnector::MySQLConnector() : connection(nullptr), cursor(nullptr), isConnected(false), lastQuery(nullptr) {
 }
 
 MySQLConnector::~MySQLConnector() {
   close();
+  if (lastQuery) {
+    delete[] lastQuery;
+  }
 }
 
 bool MySQLConnector::connect(const IPAddress& server, int port, const char* user, const char* password, const char* database) {
@@ -36,17 +37,19 @@ bool MySQLConnector::query(const char* sql) {
   }
   
   // Create a cursor if we don't have one
-  if (!cursor) {
-    cursor = new MySQL_Cursor(connection);
+  if (cursor) {
+    delete cursor;
   }
+  cursor = new MySQL_Cursor(connection);
   
   // Execute the query
-  if (cursor->execute(sql)) {
-    return true;
-  } else {
+  bool result = cursor->execute(sql);
+  
+  if (!result) {
     Serial.println("Query execution failed");
-    return false;
   }
+  
+  return result;
 }
 
 bool MySQLConnector::query(const char* format, ...) {
@@ -68,6 +71,10 @@ bool MySQLConnector::query(const char* format, ...) {
   return query(queryBuffer);
 }
 
+MySQL_Cursor* MySQLConnector::getCursor() {
+  return cursor;
+}
+
 void MySQLConnector::close() {
   // Close cursor if it exists
   if (cursor) {
@@ -87,49 +94,4 @@ void MySQLConnector::close() {
 
 bool MySQLConnector::connected() const {
   return isConnected && connection && connection->connected();
-}
-
-bool MySQLConnector::fetchRow() {
-  if (!isConnected || !cursor) {
-    return false;
-  }
-  
-  // Try to fetch the next row
-  return cursor->get_next_row();
-}
-
-int MySQLConnector::getColumnCount() const {
-  if (!isConnected || !cursor) {
-    return 0;
-  }
-  
-  // Get the number of columns in the result set
-  return cursor->get_num_cols();
-}
-
-const char* MySQLConnector::getString(int columnIndex) const {
-  if (!isConnected || !cursor || columnIndex < 0) {
-    return nullptr;
-  }
-  
-  // Get string value of a column by index
-  return cursor->get_string(columnIndex);
-}
-
-long MySQLConnector::getInt(int columnIndex) const {
-  if (!isConnected || !cursor || columnIndex < 0) {
-    return 0;
-  }
-  
-  // Get integer value of a column by index
-  return cursor->get_long(columnIndex);
-}
-
-float MySQLConnector::getFloat(int columnIndex) const {
-  if (!isConnected || !cursor || columnIndex < 0) {
-    return 0.0;
-  }
-  
-  // Get float value of a column by index
-  return cursor->get_float(columnIndex);
 }
