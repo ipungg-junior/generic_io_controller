@@ -43,6 +43,9 @@ class PinController {
     // Scan all input pins for button presses
     void scanButtons();
     
+    // Get the current state of a pin (1 or 0)
+    int getState(int pinNum) const;
+    
     // Get current pin count
     int getPinCount() const;
     

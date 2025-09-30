@@ -174,7 +174,7 @@ void setup() {
   // Setup button pins (example: pin 15 as button input)
   // You can add more buttons by calling pinController.setPinAsInput(pinNumber)
   pinController.setPinAsInput(15);
-177 | }
+}
 
 void loop() {
   // waiting client forever
@@ -185,4 +185,10 @@ void loop() {
   
   // Scan for button presses
   pinController.scanButtons();
+
+  if (pinController.getState(15) == 1) {
+    // Button on pin 15 is pressed, do something
+    Serial.println('Button pressed')
+    pinController.setPin(32, 1, 4000);
+  }
 }

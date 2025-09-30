@@ -123,6 +123,25 @@ void PinController::scanButtons() {
   }
 }
 
+int PinController::getState(int pinNum) const {
+  // Check if pin exists in our tracking system
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].pin == pinNum) {
+      if (pinStates[i].isInput) {
+        // For input pins, return the current button state
+        return pinStates[i].currentButtonState == LOW ? 1 : 0;  // Button pressed = 1, not pressed = 0
+      } else {
+        // For output pins, return the current value
+        return pinStates[i].value;
+      }
+    }
+  }
+  
+  // If pin is not in our tracking system, read it directly
+  // This could be for pins that were set outside of our controller
+  return digitalRead(pinNum);
+}
+
 void PinController::offAll() {
   // Set all GPIO pins (0-39) to LOW
   for (int pin = 0; pin < 40; pin++) {
