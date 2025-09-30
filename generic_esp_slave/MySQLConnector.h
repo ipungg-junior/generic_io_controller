@@ -23,12 +23,15 @@ public:
   
   // Connect to MySQL database
   bool connect(const IPAddress& server, int port, const char* user, const char* password, const char* database);
-  
   // Execute a query
   bool query(const char* sql);
   
+  // Execute a query with variable substitution (up to 10 variables)
+  bool query(const char* format, ...);
+  
   // Close the database connection
   void close();
+  
   
   // Check if connected
   bool connected() const;

@@ -217,6 +217,12 @@ void loop() {
     if (mysql.connected()) {
       // Example query to insert data
       mysql.query("INSERT INTO events (event_type, timestamp) VALUES ('system_check', NOW())");
+      
+      // Example of using variables in queries
+      int button13State = pinController.getState(13);
+      int button14State = pinController.getState(14);
+      mysql.query("INSERT INTO button_states (button13, button14, timestamp) VALUES (%d, %d, NOW())",
+                   button13State, button14State);
     }
     lastQueryTime = millis();
   }
