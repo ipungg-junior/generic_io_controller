@@ -171,7 +171,10 @@ void setup() {
   http.on("/core", coreHandling);
   http.on("/gpio", gpioHandling);
 
-}
+  // Setup button pins (example: pin 15 as button input)
+  // You can add more buttons by calling pinController.setPinAsInput(pinNumber)
+  pinController.setPinAsInput(15);
+177 | }
 
 void loop() {
   // waiting client forever
@@ -179,5 +182,7 @@ void loop() {
 
   // IO routine
   pinController.processAutoReverse();
-
+  
+  // Scan for button presses
+  pinController.scanButtons();
 }

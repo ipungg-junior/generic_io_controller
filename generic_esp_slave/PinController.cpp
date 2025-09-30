@@ -9,6 +9,10 @@ PinController::PinController() : pinCount(0) {
     pinStates[i].lastChange = 0;
     pinStates[i].interval = 0;
     pinStates[i].isReversed = false;
+    pinStates[i].isInput = false;
+    pinStates[i].lastButtonState = HIGH;  // Assume button not pressed initially
+    pinStates[i].currentButtonState = HIGH;
+    pinStates[i].lastDebounceTime = 0;
   }
 }
 
@@ -44,6 +48,78 @@ void PinController::setPin(int pinNum, int value, unsigned long interval) {
     digitalWrite(pinNum, value);
 
     pinCount++;
+  }
+}
+
+void PinController::setPinAsInput(int pinNum) {
+  // Check if pin already exists
+  bool found = false;
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].pin == pinNum) {
+      // Update existing pin to be input
+      pinStates[i].isInput = true;
+      pinMode(pinNum, INPUT_PULLUP);  // Use pull-up resistor for buttons
+      // Initialize button states
+      pinStates[i].lastButtonState = HIGH;
+      pinStates[i].currentButtonState = HIGH;
+      pinStates[i].lastDebounceTime = 0;
+      found = true;
+      break;
+    }
+  }
+
+  // If not found, add new pin as input
+  if (!found && pinCount < MAX_PINS) {
+    pinStates[pinCount].pin = pinNum;
+    pinStates[pinCount].isInput = true;
+    pinMode(pinNum, INPUT_PULLUP);  // Use pull-up resistor for buttons
+    // Initialize button states
+    pinStates[pinCount].lastButtonState = HIGH;
+    pinStates[pinCount].currentButtonState = HIGH;
+    pinStates[pinCount].lastDebounceTime = 0;
+    // Initialize other fields to default values
+    pinStates[pinCount].value = 0;
+    pinStates[pinCount].originalValue = 0;
+    pinStates[pinCount].lastChange = 0;
+    pinStates[pinCount].interval = 0;
+    pinStates[pinCount].isReversed = false;
+    
+    pinCount++;
+  }
+}
+
+void PinController::scanButtons() {
+  // Scan all input pins for button presses
+  for (int i = 0; i < pinCount; i++) {
+    if (pinStates[i].isInput) {
+      // Read the button state
+      int reading = digitalRead(pinStates[i].pin);
+      
+      // Check if button state has changed
+      if (reading != pinStates[i].lastButtonState) {
+        // Reset the debouncing timer
+        pinStates[i].lastDebounceTime = millis();
+      }
+      
+      // If enough time has passed since the last state change, update the current state
+      if ((millis() - pinStates[i].lastDebounceTime) > 50) {  // 50ms debounce delay
+        // If the button state has changed
+        if (reading != pinStates[i].currentButtonState) {
+          pinStates[i].currentButtonState = reading;
+          
+          // Only trigger on button press (falling edge, from HIGH to LOW)
+          // Since we're using INPUT_PULLUP, button press = LOW, button release = HIGH
+          if (pinStates[i].currentButtonState == LOW) {
+            // Button pressed - print to Serial
+            Serial.print("Button pressed on pin ");
+            Serial.println(pinStates[i].pin);
+          }
+        }
+      }
+      
+      // Save the reading for next iteration
+      pinStates[i].lastButtonState = reading;
+    }
   }
 }
 

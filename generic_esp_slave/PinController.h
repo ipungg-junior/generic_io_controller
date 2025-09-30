@@ -10,6 +10,10 @@ struct PinState {
   unsigned long lastChange;
   unsigned long interval;  // in ms
   bool isReversed;         // Flag to track if reversal has occurred
+  bool isInput;            // Flag to track if pin is configured as input
+  int lastButtonState;     // Last button state for edge detection
+  int currentButtonState;  // Current button state
+  unsigned long lastDebounceTime; // Last debounce time
 };
 
 class PinController {
@@ -32,6 +36,12 @@ class PinController {
     
     // Process auto-reverse for all pins
     void processAutoReverse();
+    
+    // Set a pin as input mode for button handling
+    void setPinAsInput(int pinNum);
+    
+    // Scan all input pins for button presses
+    void scanButtons();
     
     // Get current pin count
     int getPinCount() const;
