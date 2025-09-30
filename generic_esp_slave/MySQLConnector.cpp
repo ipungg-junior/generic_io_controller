@@ -60,23 +60,19 @@ bool MySQLConnector::query(const char* sql) {
       return false;
     }
     
+    // Get column information (required by MySQL library)
+    column_names* cols = currentCursor->get_columns();
+    
     return true;
   } else {
-    // Clean up any existing cursor
-    if (currentCursor) {
-      delete currentCursor;
-    }
-    
-    // Create a new cursor for SELECT queries
-    currentCursor = new MySQL_Cursor(connection);
-    currentRow = nullptr;
-    bool result = currentCursor->execute(sql);
+    // For non-SELECT queries, execute directly
+    MySQL_Cursor cur = MySQL_Cursor(connection);
+    bool result = cur.execute(sql);
     
     if (!result) {
       Serial.println("Query execution failed");
     }
-    delete currentCursor;
-    currentCursor = nullptr;
+    
     return result;
   }
 }
@@ -188,25 +184,20 @@ bool MySQLConnector::queryf(const char* format, ...) {
       return false;
     }
     
+    // Get column information (required by MySQL library)
+    column_names* cols = currentCursor->get_columns();
+    
     return true;
   } else {
     // For non-SELECT queries, execute directly
     // Explicit cast to disambiguate between overloaded execute methods
-    // Clean up any existing cursor
-    if (currentCursor) {
-      delete currentCursor;
-    }
-    
-    // Create a new cursor for SELECT queries
-    currentCursor = new MySQL_Cursor(connection);
-    currentRow = nullptr;
-    bool result = currentCursor->execute((const char*)queryBuffer);
+    MySQL_Cursor cur = MySQL_Cursor(connection);
+    bool result = cur.execute((const char*)queryBuffer);
     
     if (!result) {
       Serial.println("Query execution failed");
     }
-    delete currentCursor;
-    currentRow = nullptr;
+    
     return result;
   }
 }
