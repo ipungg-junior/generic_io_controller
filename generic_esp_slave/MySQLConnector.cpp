@@ -1,13 +1,12 @@
 #include "MySQLConnector.h"
-#include <Ethernet.h>
 
-MySQLConnector::MySQLConnector() : connection(nullptr), client(nullptr), cursor(nullptr), isConnected(false), lastQuery(nullptr) {
+MySQLConnector::MySQLConnector() : client(nullptr), connection(nullptr), currentCursor(nullptr), currentRow(nullptr), isConnected(false) {
 }
 
 MySQLConnector::~MySQLConnector() {
   close();
-  if (lastQuery) {
-    delete[] lastQuery;
+  if (currentCursor) {
+    delete currentCursor;
   }
 }
 
@@ -22,11 +21,12 @@ bool MySQLConnector::connect(const IPAddress& server, int port, const char* user
   connection = new MySQL_Connection(client);
   
   // Connect to MySQL server
-  if (connection->connect(server, port, user, password, database)) {
+  if (connection->connect(server, port, (char*)user, (char*)password, (char*)database)) {
     isConnected = true;
     return true;
   } else {
     isConnected = false;
+    // Clean up on failure
     delete connection;
     connection = nullptr;
     delete client;
@@ -41,23 +41,120 @@ bool MySQLConnector::query(const char* sql) {
     return false;
   }
   
-  // Create a cursor if we don't have one
-  if (cursor) {
-    delete cursor;
+  // Check if this is a SELECT query
+  if (strncmp(sql, "SELECT", 6) == 0 || strncmp(sql, "select", 6) == 0) {
+    // Clean up any existing cursor
+    if (currentCursor) {
+      delete currentCursor;
+    }
+    
+    // Create a new cursor for SELECT queries
+    currentCursor = new MySQL_Cursor(connection);
+    currentRow = nullptr;
+    
+    // Execute the SELECT query
+    if (!currentCursor->execute(sql)) {
+      Serial.println("SELECT query execution failed");
+      delete currentCursor;
+      currentCursor = nullptr;
+      return false;
+    }
+    
+    return true;
+  } else {
+    // Clean up any existing cursor
+    if (currentCursor) {
+      delete currentCursor;
+    }
+    
+    // Create a new cursor for SELECT queries
+    currentCursor = new MySQL_Cursor(connection);
+    currentRow = nullptr;
+    bool result = currentCursor->execute(sql);
+    
+    if (!result) {
+      Serial.println("Query execution failed");
+    }
+    delete currentCursor;
+    currentCursor = nullptr;
+    return result;
   }
-  cursor = new MySQL_Cursor(connection);
-  
-  // Execute the query
-  bool result = cursor->execute(sql);
-  
-  if (!result) {
-    Serial.println("Query execution failed");
-  }
-  
-  return result;
 }
 
-bool MySQLConnector::query(const char* format, ...) {
+MySQL_Cursor* MySQLConnector::select(const char* sql) {
+  if (!isConnected || !connection) {
+    Serial.println("Not connected to database");
+    return nullptr;
+  }
+  
+  if (currentCursor) {
+      delete currentCursor;
+    }
+    
+    // Create a new cursor for SELECT queries
+    currentCursor = new MySQL_Cursor(connection);
+    
+    // Execute the SELECT query
+    if (!currentCursor->execute(sql)) {
+      Serial.println("SELECT query execution failed");
+      delete currentCursor;
+      currentRow = nullptr;
+      return nullptr;
+    }
+  
+  return currentCursor;
+}
+
+MySQL_Cursor* MySQLConnector::selectf(const char* format, ...) {
+  if (!isConnected || !connection) {
+    Serial.println("Not connected to database");
+    return nullptr;
+  }
+  
+  // Create a buffer for the formatted query
+  char queryBuffer[256];  // Adjust size as needed for your queries
+  
+  // Format the query with variables
+  va_list args;
+  va_start(args, format);
+  vsnprintf(queryBuffer, sizeof(queryBuffer), format, args);
+  va_end(args);
+  
+  // Execute the formatted SELECT query
+  return select(queryBuffer);
+}
+
+bool MySQLConnector::fetchRow() {
+  if (!currentCursor) {
+    Serial.println("No active SELECT query");
+    return false;
+  }
+  
+  currentRow = currentCursor->get_next_row();
+  return (currentRow != nullptr);
+}
+
+int MySQLConnector::getInt(int columnIndex) {
+  if (!currentRow || columnIndex < 0) {
+    return 0;
+  }
+  
+  // Check if column index is valid
+  // Note: We're assuming the row has enough columns
+  return atoi(currentRow->values[columnIndex]);
+}
+
+const char* MySQLConnector::getString(int columnIndex) {
+  if (!currentRow || columnIndex < 0) {
+    return "";
+  }
+  
+  // Check if column index is valid
+  // Note: We're assuming the row has enough columns
+  return currentRow->values[columnIndex];
+}
+
+bool MySQLConnector::queryf(const char* format, ...) {
   if (!isConnected || !connection) {
     Serial.println("Not connected to database");
     return false;
@@ -72,29 +169,59 @@ bool MySQLConnector::query(const char* format, ...) {
   vsnprintf(queryBuffer, sizeof(queryBuffer), format, args);
   va_end(args);
   
-  // Execute the formatted query
-  return query(queryBuffer);
+  // Check if this is a SELECT query
+  if (strncmp(queryBuffer, "SELECT", 6) == 0 || strncmp(queryBuffer, "select", 6) == 0) {
+    // Clean up any existing cursor
+    if (currentCursor) {
+      delete currentCursor;
+    }
+    
+    // Create a new cursor for SELECT queries
+    currentCursor = new MySQL_Cursor(connection);
+    currentRow = nullptr;
+    
+    // Execute the SELECT query
+    if (!currentCursor->execute(queryBuffer)) {
+      Serial.println("SELECT query execution failed");
+      delete currentCursor;
+      currentCursor = nullptr;
+      return false;
+    }
+    
+    return true;
+  } else {
+    // For non-SELECT queries, execute directly
+    // Explicit cast to disambiguate between overloaded execute methods
+    // Clean up any existing cursor
+    if (currentCursor) {
+      delete currentCursor;
+    }
+    
+    // Create a new cursor for SELECT queries
+    currentCursor = new MySQL_Cursor(connection);
+    currentRow = nullptr;
+    bool result = currentCursor->execute((const char*)queryBuffer);
+    
+    if (!result) {
+      Serial.println("Query execution failed");
+    }
+    delete currentCursor;
+    currentRow = nullptr;
+    return result;
+  }
 }
 
-MySQL_Cursor* MySQLConnector::getCursor() {
-  return cursor;
+MySQL_Connection* MySQLConnector::getConnection() {
+  return connection;
 }
 
 void MySQLConnector::close() {
-  // Close cursor if it exists
-  if (cursor) {
-    delete cursor;
-    cursor = nullptr;
-  }
-  
-  // Close connection if it exists
   if (connection) {
     connection->close();
     delete connection;
     connection = nullptr;
   }
   
-  // Delete client if it exists
   if (client) {
     delete client;
     client = nullptr;

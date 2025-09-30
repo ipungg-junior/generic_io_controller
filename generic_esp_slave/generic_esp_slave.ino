@@ -188,6 +188,8 @@ void setup() {
   } else {
     Serial.println("Failed to connect to MySQL database");
   }
+
+  
 }
 
 void loop() {
@@ -203,6 +205,19 @@ void loop() {
   if (pinController.getState(13) == 1) {
     // Button on pin 15 is pressed, do something
     Serial.println("Button 13 pressed");
+    // Example of using SELECT queries to retrieve data
+    if (mysql.query("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = 164635188")) {
+      // Fetch and process rows
+      while (mysql.fetchRow()) {
+        int id = mysql.getInt(0);
+        const char* name = mysql.getString(1);
+        
+        Serial.print("Config - ID: ");
+        Serial.print(id);
+        Serial.print(", Name: ");
+        Serial.println(name);
+      }
+    }
     pinController.setPin(32, 1, 5000);
   }
   if (pinController.getState(14) == 1) {
@@ -210,41 +225,6 @@ void loop() {
     pinController.setPin(32, 1, 5000);
   }
   
-  // Example of using MySQL connector in loop
-  // This could be used for logging button presses or other events
-  static unsigned long lastQueryTime = 0;
-  if (millis() - lastQueryTime > 10000) {  // Every 10 seconds
-    if (mysql.connected()) {
-      // Example query to insert data
-      mysql.query("INSERT INTO events (event_type, timestamp) VALUES ('system_check', NOW())");
-      
-      // Example of using variables in queries
-      int button13State = pinController.getState(13);
-      int button14State = pinController.getState(14);
-      mysql.query("INSERT INTO button_states (button13, button14, timestamp) VALUES (%d, %d, NOW())",
-                   button13State, button14State);
                    
-      // Example of using SELECT queries to retrieve data
-      if (mysql.query("SELECT id, name, value FROM config WHERE active=1")) {
-        // Get cursor to process results
-        MySQL_Cursor* cursor = mysql.getCursor();
-        
-        // Process rows
-        while (cursor->get_next_row()) {
-          // Get column values
-          long id = cursor->get_long(0);
-          const char* name = cursor->get_string(1);
-          long value = cursor->get_long(2);
-          
-          Serial.print("Config - ID: ");
-          Serial.print(id);
-          Serial.print(", Name: ");
-          Serial.print(name);
-          Serial.print(", Value: ");
-          Serial.println(value);
-        }
-      }
-    }
-    lastQueryTime = millis();
-  }
+  
 }
