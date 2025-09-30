@@ -11,6 +11,10 @@
 #include <MySQL_Buffer.h>
 #include <MySQL_SHA1.h>
 
+// Forward declarations
+class MySQL_Connection;
+class MySQL_Cursor;
+
 class MySQLConnector {
 private:
   MySQL_Connection* connection;
@@ -28,6 +32,21 @@ public:
   
   // Execute a query with variable substitution (up to 10 variables)
   bool query(const char* format, ...);
+  
+  // Fetch the next row from the result set
+  bool fetchRow();
+  
+  // Get the number of columns in the result set
+  int getColumnCount() const;
+  
+  // Get string value of a column by index
+  const char* getString(int columnIndex) const;
+  
+  // Get integer value of a column by index
+  long getInt(int columnIndex) const;
+  
+  // Get float value of a column by index
+  float getFloat(int columnIndex) const;
   
   // Close the database connection
   void close();

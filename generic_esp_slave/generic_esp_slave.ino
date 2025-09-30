@@ -223,6 +223,23 @@ void loop() {
       int button14State = pinController.getState(14);
       mysql.query("INSERT INTO button_states (button13, button14, timestamp) VALUES (%d, %d, NOW())",
                    button13State, button14State);
+                   
+      // Example of using SELECT queries to retrieve data
+      if (mysql.query("SELECT id, name, value FROM config WHERE active=1")) {
+        // Fetch and process rows
+        while (mysql.fetchRow()) {
+          int id = mysql.getInt(0);
+          const char* name = mysql.getString(1);
+          int value = mysql.getInt(2);
+          
+          Serial.print("Config - ID: ");
+          Serial.print(id);
+          Serial.print(", Name: ");
+          Serial.print(name);
+          Serial.print(", Value: ");
+          Serial.println(value);
+        }
+      }
     }
     lastQueryTime = millis();
   }
