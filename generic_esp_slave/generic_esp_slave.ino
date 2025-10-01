@@ -174,7 +174,6 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
         client.println();
         client.print("{\"status\":true,");
         client.print("\"message\":\"Wiegand timeout\"}");
-        client.close();
         break;
       } 
       else {
@@ -186,18 +185,18 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
           if (wgData.length() < 6){
             return;
           }
-          Serial.print("Found for register : ")
+          Serial.print("Found for register : ");
           Serial.println(wgData);
           client.println("HTTP/1.1 200 OK");
           client.println("Content-Type: application/json");
           client.println("Connection: close");
           client.println();
-          client.print("{\"status\":true,");
-          client.print("{\"uid\": ");
+          client.print("{");
+          client.print("\"status\":true,");
+          client.print("\"uid\":");
           client.print(wgData);
-          client.print(", ");
-          client.print("\"message\":\"Found card uid\"}");
-          client.close();
+          client.print(", \"message\":\"Found card uid\"");
+          client.print("}");
           break;
 
         }
@@ -260,7 +259,6 @@ void setup() {
   http.begin();
   http.on("/core", coreHandling);
   http.on("/gpio", gpioHandling);
-  http.on("/employee", employeeHandling);
 
   // Setup button pins
   pinController.setPinAsInput(13);
