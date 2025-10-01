@@ -174,9 +174,9 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
 
 bool validateCardId(String cardNumber) {
 
-  // Example using the new selectQuery method with QueryResult
+  // Example using the new selectQueryf method with QueryResult and variable parameters
   QueryResult result;
-  if (mysql.selectQuery("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '123456'", result)) {
+  if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber.c_str())) {
     Serial.print("Query returned ");
     Serial.print(result.size());
     Serial.println(" rows");

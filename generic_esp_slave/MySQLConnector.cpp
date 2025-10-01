@@ -270,6 +270,25 @@ bool MySQLConnector::selectQuery(const char* sql, QueryResult& result) {
   return true;
 }
 
+bool MySQLConnector::selectQueryf(QueryResult& result, const char* format, ...) {
+  if (!isConnected || !connection) {
+    Serial.println("Not connected to database");
+    return false;
+  }
+  
+  // Create a buffer for the formatted query
+  char queryBuffer[256];  // Adjust size as needed for your queries
+  
+  // Format the query with variables
+  va_list args;
+  va_start(args, format);
+  vsnprintf(queryBuffer, sizeof(queryBuffer), format, args);
+  va_end(args);
+  
+  // Use the existing selectQuery method to execute the formatted query
+  return selectQuery(queryBuffer, result);
+}
+
 MySQL_Connection* MySQLConnector::getConnection() {
   return connection;
 }

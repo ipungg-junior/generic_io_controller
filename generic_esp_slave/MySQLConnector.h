@@ -56,6 +56,9 @@ public:
   // Execute a SELECT query and return results as QueryResult
   bool selectQuery(const char* sql, QueryResult& result);
   
+  // Execute a SELECT query with variable substitution and return results as QueryResult
+  bool selectQueryf(QueryResult& result, const char* format, ...);
+  
   // Get the connection object for direct access to cursor creation
   MySQL_Connection* getConnection();
   
