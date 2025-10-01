@@ -207,6 +207,41 @@ bool validateCardId(String cardNumber) {
   
 }
 
+bool registerCardId(String cardNumber, Employee& employee) {
+
+  // Example using the new selectQueryf method with QueryResult and variable parameters
+  QueryResult result;
+  if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
+    
+      if (result.size() > 0) {
+        // Card already registered
+        Serial.println("Card already registered!");
+        return false;
+      }
+
+      if (mysql.queryf("INSERT INTO `employee` (name, dob, nik) VALUES ('%s', '%s', '%s)", employee.name, employee.dob, employee.nik)){
+          
+          delay(50);
+          if (mysql.selectQueryf(result, "SELECT id FROM employee WHERE name='%s'", employee.name)){            
+            RowData& row = result[0];
+            String id = row.values[0];
+            if (mysql.queryf("INSERT INTO `employee_card` (employee_id, card_number, nip) VALUES ('%d', '%s', '%s)", (int)id, employee.card_number, employee.nip)){
+              return true;
+            }else{
+              return false;
+            }
+          } else{
+            return false;
+          }
+
+      }
+
+  } else{
+    Serial.println("Query failed for checking card!");
+    return false;
+  }
+}
+
 
 void setup() {
   // put your setup code here, to run once:
