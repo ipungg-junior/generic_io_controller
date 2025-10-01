@@ -33,17 +33,8 @@ PinController pinController;
 #include "Wiegand.h"
 WIEGAND wg;
 
-struct Employee {
-  String name;
-  String dob;
-  String nik;
-  String nip;
-};
-Employee employee; 
-
 
 unsigned long prevMillisWiegand;
-String wgMode = "validate"; // default mode wiegand
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -243,10 +234,15 @@ bool validateCardId(String cardNumber) {
         Serial.print(id);
         Serial.print(", Name: ");
         Serial.println(name);
-      }
-  }
+      }      
+    }
+
+    mysql.closeCursor();
     
     return result.size() > 0;
+  }else{
+    mysql.closeCursor();
+    return false;
   }
   
 }
@@ -322,15 +318,11 @@ void loop() {
         return;
       }
 
-      if (wgMode == "validate"){
-
-        if (validateCardId(wgData)){
-          if (!is_opened){
-            is_opened = true;
-            pinController.setPin(32, 1, 3000);
-          }
+      if (validateCardId(wgData)){
+        if (!is_opened){
+          is_opened = true;
+          pinController.setPin(32, 1, 3000);
         }
-
       }
 
       Serial.print("Wiegand scan result : ");
