@@ -226,3 +226,12 @@ void MySQLConnector::close() {
 bool MySQLConnector::connected() const {
   return isConnected && connection && connection->connected();
 }
+
+void MySQLConnector::closeCursor() {
+  if (connection) {
+    delete currentCursor;
+    currentCursor = nullptr;
+    delete currentRow;
+    currentRow = nullptr;
+  }
+}

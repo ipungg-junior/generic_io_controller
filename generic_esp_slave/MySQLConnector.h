@@ -52,6 +52,8 @@ public:
   
   // Check if connected
   bool connected() const;
+
+  void closeCursor();
 };
 
 #endif

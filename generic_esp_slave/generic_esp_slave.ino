@@ -229,8 +229,10 @@ void loop() {
 
   // Wiegand routine
   if (wg.available()){
+
     // check if interval has passed
     if (currentMillis - prevMillisWiegand >= 2000) {
+
       prevMillisWiegand = currentMillis;  // save the last time
       String wgData = String(wg.getCode());
 
@@ -238,7 +240,18 @@ void loop() {
       if (wgData.length() < 6){
         return;
       }
-
+      if (mysql.queryf("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", wgData)) {
+        // Fetch and process rows
+        while (mysql.fetchRow()) {
+          int id = mysql.getInt(0);
+          const char* name = mysql.getString(1);
+          Serial.print("ID: ");
+          Serial.print(id);
+          Serial.print(", Name: ");
+          Serial.println(name);
+        }
+        mysql.close_cursor();
+      }
       Serial.print("Wiegand scan result : ");
       Serial.println(wgData);
 
