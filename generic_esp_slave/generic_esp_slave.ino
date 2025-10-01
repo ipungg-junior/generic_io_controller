@@ -222,7 +222,7 @@ bool registerCardId(String cardNumber, Employee& employee) {
           if (mysql.selectQueryf(result, "SELECT id FROM employee WHERE name='%s'", employee.name)){            
             RowData& row = result[0];
             String id = row.values[0];
-            if (mysql.queryf("INSERT INTO `employee_card` (employee_id, card_number, nip) VALUES ('%d', '%s', '%s)", (int)id, employee.card_number, employee.nip)){
+            if (mysql.queryf("INSERT INTO `employee_card` (employee_id, card_number, nip) VALUES ('%s', '%s', '%s')", id, cardNumber, employee.nip)){
               return true;
             }else{
               return false;
