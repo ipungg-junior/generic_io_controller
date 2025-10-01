@@ -175,9 +175,9 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
 bool validateCardId(String cardNumber) {
 
   if (mysql.queryf("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
-    unsigned int id = nullptr;
+    int id = NULL;
     while (mysql.fetchRow()) {
-      int id = mysql.getInt(0);
+      id = mysql.getInt(0);
       const char* name = mysql.getString(1);
       Serial.print("ID: ");
       Serial.print(id);
@@ -187,10 +187,10 @@ bool validateCardId(String cardNumber) {
 
     mysql.closeCursor();
 
-    if (id==nullptr){
+    if (id==NULL){
       return false;
     }
-    return true
+    return true;
 
   }
 }
@@ -274,8 +274,9 @@ void loop() {
             pinController.setPin(32, 1, 3000);
           }
         }
-        mysql.closeCursor();
+
       }
+
       Serial.print("Wiegand scan result : ");
       Serial.println(wgData);
 
