@@ -174,25 +174,29 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
 
 bool validateCardId(String cardNumber) {
 
-  if (mysql.queryf("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
-    int id = NULL;
-    while (mysql.fetchRow()) {
-      id = mysql.getInt(0);
-      const char* name = mysql.getString(1);
+  // Example using the new selectQueryf method with QueryResult and variable parameters
+  QueryResult result;
+  if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber.c_str())) {
+    Serial.print("Query returned ");
+    Serial.print(result.size());
+    Serial.println(" rows");
+    
+    // Process each row
+    for (int i = 0; i < result.size(); i++) {
+      RowData& row = result[i];
+      if (row.values.size() >= 2) {
+        String id = row.values[0];
+        String name = row.values[1];
       Serial.print("ID: ");
       Serial.print(id);
       Serial.print(", Name: ");
       Serial.println(name);
     }
-
-    mysql.closeCursor();
-
-    if (id==NULL){
-      return false;
-    }
-    return true;
-
   }
+    
+    return result.size() > 0;
+  }
+  
 }
 
 

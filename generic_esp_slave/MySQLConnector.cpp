@@ -204,6 +204,91 @@ bool MySQLConnector::queryf(const char* format, ...) {
   }
 }
 
+bool MySQLConnector::selectQuery(const char* sql, QueryResult& result) {
+  if (!isConnected || !connection) {
+    Serial.println("Not connected to database");
+    return false;
+  }
+  
+  // Check if this is a SELECT query
+  if (strncmp(sql, "SELECT", 6) != 0 && strncmp(sql, "select", 6) != 0) {
+    Serial.println("This method is only for SELECT queries");
+    return false;
+  }
+  
+  // Clean up any existing cursor
+  if (currentCursor) {
+    delete currentCursor;
+  }
+  
+  // Create a new cursor for SELECT queries
+  currentCursor = new MySQL_Cursor(connection);
+  currentRow = nullptr;
+  
+  // Execute the SELECT query
+  if (!currentCursor->execute(sql)) {
+    Serial.println("SELECT query execution failed");
+    delete currentCursor;
+    currentCursor = nullptr;
+    return false;
+  }
+  
+  // Get column information (required by MySQL library)
+  column_names* cols = currentCursor->get_columns();
+  if (!cols) {
+    Serial.println("Failed to get column information");
+    delete currentCursor;
+    currentCursor = nullptr;
+    return false;
+  }
+  
+  // Clear the result vector
+  result.clear();
+  
+  // Fetch all rows and add them to the result
+  row_values* row;
+  while ((row = currentCursor->get_next_row()) != nullptr) {
+    RowData rowData;
+    rowData.values.reserve(cols->num_fields);
+    
+    // Add each column value as a string
+    for (int i = 0; i < cols->num_fields; i++) {
+      if (row->values[i] != nullptr) {
+        rowData.values.push_back(String(row->values[i]));
+      } else {
+        rowData.values.push_back(String(""));
+      }
+    }
+    
+    result.push_back(rowData);
+  }
+  
+  // Clean up cursor
+  delete currentCursor;
+  currentCursor = nullptr;
+  
+  return true;
+}
+
+bool MySQLConnector::selectQueryf(QueryResult& result, const char* format, ...) {
+  if (!isConnected || !connection) {
+    Serial.println("Not connected to database");
+    return false;
+  }
+  
+  // Create a buffer for the formatted query
+  char queryBuffer[256];  // Adjust size as needed for your queries
+  
+  // Format the query with variables
+  va_list args;
+  va_start(args, format);
+  vsnprintf(queryBuffer, sizeof(queryBuffer), format, args);
+  va_end(args);
+  
+  // Use the existing selectQuery method to execute the formatted query
+  return selectQuery(queryBuffer, result);
+}
+
 MySQL_Connection* MySQLConnector::getConnection() {
   return connection;
 }

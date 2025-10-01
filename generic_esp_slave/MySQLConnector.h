@@ -7,6 +7,15 @@
 #include <MySQL_Cursor.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <vector>
+
+// Structure to hold a single row of data as strings
+struct RowData {
+  std::vector<String> values;
+};
+
+// Type definition for a collection of rows
+typedef std::vector<RowData> QueryResult;
 
 class MySQLConnector {
 private:
@@ -43,6 +52,12 @@ public:
   
   // Execute a SELECT query with variable substitution and return cursor for result processing
   MySQL_Cursor* selectf(const char* format, ...);
+  
+  // Execute a SELECT query and return results as QueryResult
+  bool selectQuery(const char* sql, QueryResult& result);
+  
+  // Execute a SELECT query with variable substitution and return results as QueryResult
+  bool selectQueryf(QueryResult& result, const char* format, ...);
   
   // Get the connection object for direct access to cursor creation
   MySQL_Connection* getConnection();
