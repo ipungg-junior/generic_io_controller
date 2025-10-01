@@ -43,6 +43,7 @@ Employee employee;
 
 
 unsigned long prevMillisWiegand;
+unsigned long startChangeMode;
 String wgMode = "validate"; // default mode wiegand
 
 
@@ -230,7 +231,8 @@ void employeeHandling(EthernetClient& client, const String& path, const String& 
     }
 
     // valid requets will change wgMode to register mode
-    // wgMode = "register";
+    startChangeMode = millis();
+    wgMode = "register";
 
   }
   
@@ -294,6 +296,7 @@ bool registerCardId(String cardNumber, Employee& employee) {
     Serial.println("Query failed for checking card!");
     return false;
   }
+  
 }
 
 
@@ -375,6 +378,22 @@ void loop() {
             is_opened = true;
             pinController.setPin(32, 1, 3000);
           }
+        }
+
+      }
+
+      else if (wgMode == "register"){
+        wgMode = "validate";
+
+        if (currentMillis - startChangeMode >= 3500){
+          Serial.println("Timeout register mode")
+        }else{
+          // Call register function
+          Serial.println("Will be register");
+          Serial.print("Name : ");
+          Serial.println(employee.name);
+          Serial.print("Card number : ");
+          Serial.println(wgData);
         }
 
       }
