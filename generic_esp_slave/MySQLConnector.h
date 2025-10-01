@@ -38,15 +38,6 @@ public:
   // Get string value from current row at specified column index
   const char* getString(int columnIndex);
   
-  // Get column names from the current SELECT query result
-  column_names* getColumns();
-  
-  // Get the number of columns in the current SELECT query result
-  int getColumnCount();
-  
-  // Check if the current SELECT query result has rows
-  bool hasRows();
-  
   // Execute a SELECT query and return cursor for result processing
   MySQL_Cursor* select(const char* sql);
   
