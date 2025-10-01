@@ -184,10 +184,7 @@ bool validateCardId(String cardNumber) {
 
   // Example using the new selectQueryf method with QueryResult and variable parameters
   QueryResult result;
-  if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber.c_str())) {
-    Serial.print("Query returned ");
-    Serial.print(result.size());
-    Serial.println(" rows");
+  if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
     
     // Process each row
     for (int i = 0; i < result.size(); i++) {
