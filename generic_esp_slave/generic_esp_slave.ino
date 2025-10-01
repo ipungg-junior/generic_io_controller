@@ -20,7 +20,7 @@ IPAddress subnet(255, 255, 255, 0);
 EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 
 // Database configuration
-IPAddress mysql_address(192, 168, 1, 100);
+IPAddress mysql_address(10, 251, 2, 114);
 MySQLConnector mysql;
 
 // Web service configuration
@@ -32,6 +32,9 @@ PinController pinController;
 // Sensor or relay or ext. module
 #include "Wiegand.h"
 WIEGAND wg;
+
+
+unsigned long prevMillisWiegand;
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -187,7 +190,7 @@ void setup() {
   pinController.setPinAsInput(14);
   
   // Setup MySQL connection (example configuration)
-  if (mysql.connect(mysql_address, 3306, "user", "password", "database")) {
+  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
     Serial.println("Connected to MySQL database");
   } else {
     Serial.println("Failed to connect to MySQL database");
@@ -198,6 +201,9 @@ void setup() {
 }
 
 void loop() {
+  // Global current millis for countdown
+  unsigned long currentMillis = millis();
+
   // waiting client forever
   http.handleClient();
 
@@ -223,15 +229,20 @@ void loop() {
 
   // Wiegand routine
   if (wg.available()){
-    String wgData = String(wg.getCode());
+    // check if interval has passed
+    if (currentMillis - prevMillisWiegand >= 2000) {
+      prevMillisWiegand = currentMillis;  // save the last time
+      String wgData = String(wg.getCode());
 
-    // Skip noise
-    if (wgData.length() < 6){
-      return;
+      // Skip noise
+      if (wgData.length() < 6){
+        return;
+      }
+
+      Serial.print("Wiegand scan result : ");
+      Serial.println(wgData);
+
     }
-
-    Serial.print("Wiegand scan result : ");
-    Serial.println(wgData);
   }
   
                    
