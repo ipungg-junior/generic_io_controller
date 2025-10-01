@@ -192,11 +192,11 @@ bool validateCardId(String cardNumber) {
       if (row.values.size() >= 2) {
         String id = row.values[0];
         String name = row.values[1];
-      Serial.print("ID: ");
-      Serial.print(id);
-      Serial.print(", Name: ");
-      Serial.println(name);
-    }
+        Serial.print("ID: ");
+        Serial.print(id);
+        Serial.print(", Name: ");
+        Serial.println(name);
+      }
   }
     
     return result.size() > 0;
