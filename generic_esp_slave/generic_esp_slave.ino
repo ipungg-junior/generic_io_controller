@@ -230,6 +230,13 @@ void employeeHandling(EthernetClient& client, const String& path, const String& 
       employee.nip = parser.getString("employee_nip");
     }
 
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.print("{\"status\":true,");
+    client.print("\"message\":\"Please tap your card (3 second)\"}");
+
     // valid requets will change wgMode to register mode
     startChangeMode = millis();
     wgMode = "register";
@@ -385,8 +392,8 @@ void loop() {
       else if (wgMode == "register"){
         wgMode = "validate";
 
-        if (currentMillis - startChangeMode >= 3500){
-          Serial.println("Timeout register mode")
+        if (currentMillis - startChangeMode >= 4000){
+          Serial.println("Timeout register mode");
         }else{
           // Call register function
           Serial.println("Will be register");
