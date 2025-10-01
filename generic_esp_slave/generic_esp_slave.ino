@@ -232,7 +232,7 @@ void loop() {
 
     // check if interval has passed
     if (currentMillis - prevMillisWiegand >= 2000) {
-
+      bool is_opened = false;
       prevMillisWiegand = currentMillis;  // save the last time
       String wgData = String(wg.getCode());
 
@@ -249,8 +249,12 @@ void loop() {
           Serial.print(id);
           Serial.print(", Name: ");
           Serial.println(name);
+          if (!is_opened){
+            is_opened = true;
+            pinController.setPin(32, 1, 3000);
+          }
         }
-        mysql.close_cursor();
+        mysql.closeCursor();
       }
       Serial.print("Wiegand scan result : ");
       Serial.println(wgData);
