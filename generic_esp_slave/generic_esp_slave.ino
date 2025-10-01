@@ -180,6 +180,63 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
   }
 }
 
+void employeeHandling(EthernetClient& client, const String& path, const String& body) {
+  Parser parser(body);
+
+  if (!parser.isValid()) {
+    client.println("HTTP/1.1 400 Bad Request");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.print("{");
+    client.print("\"status\":false,");
+    client.print("\"message\":\"Invalid json format\"");
+    client.print("}");
+    return;
+  }
+
+  String cmd = parser.getCommand();
+  if (cmd == "register_card") {
+    if (!parser.hasKey("employee_name")) {
+      client.println("HTTP/1.1 400 Bad Request");
+      client.println("Content-Type: application/json");
+      client.println("Connection: close");
+      client.println();
+      client.print("{\"status\":false,");
+      client.print("\"message\":\"Please set employee name!\"}");
+      return;
+    }
+    employee.name = parser.getString("employee_name");
+
+    // DOB request
+    if (!parser.hasKey("employee_dob")) {
+      employee.dob = "";      
+    }else{
+      employee.dob = parser.getString("employee_dob");
+    }
+    
+    // NIK request
+    if (!parser.hasKey("employee_nik")) {
+      employee.nik = "";      
+    }else{
+      employee.nik = parser.getString("employee_nik");
+    }
+
+    // NIP request
+    if (!parser.hasKey("employee_nip")) {
+      employee.nip = "";      
+    }else{
+      employee.nip = parser.getString("employee_nip");
+    }
+
+    // valid requets will change wgMode to register mode
+    // wgMode = "register";
+
+  }
+  
+
+}
+
 bool validateCardId(String cardNumber) {
 
   // Example using the new selectQueryf method with QueryResult and variable parameters
@@ -253,6 +310,7 @@ void setup() {
   http.begin();
   http.on("/core", coreHandling);
   http.on("/gpio", gpioHandling);
+  http.on("/employee", employeeHandling);
 
   // Setup button pins
   pinController.setPinAsInput(13);
