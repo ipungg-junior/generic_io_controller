@@ -35,6 +35,7 @@ WIEGAND wg;
 
 
 unsigned long prevMillisWiegand;
+String wgMode = "validate"; // default mode wiegand
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -171,6 +172,30 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
   }
 }
 
+bool validateCardId(String cardNumber) {
+
+  if (mysql.queryf("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
+    unsigned int id = nullptr;
+    while (mysql.fetchRow()) {
+      int id = mysql.getInt(0);
+      const char* name = mysql.getString(1);
+      Serial.print("ID: ");
+      Serial.print(id);
+      Serial.print(", Name: ");
+      Serial.println(name);
+    }
+
+    mysql.closeCursor();
+
+    if (id==nullptr){
+      return false;
+    }
+    return true
+
+  }
+}
+
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -240,15 +265,10 @@ void loop() {
       if (wgData.length() < 6){
         return;
       }
-      if (mysql.queryf("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", wgData)) {
-        // Fetch and process rows
-        while (mysql.fetchRow()) {
-          int id = mysql.getInt(0);
-          const char* name = mysql.getString(1);
-          Serial.print("ID: ");
-          Serial.print(id);
-          Serial.print(", Name: ");
-          Serial.println(name);
+
+      if (wgMode == "validate"){
+
+        if (validateCardId(wgData)){
           if (!is_opened){
             is_opened = true;
             pinController.setPin(32, 1, 3000);
