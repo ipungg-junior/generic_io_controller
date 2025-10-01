@@ -33,6 +33,14 @@ PinController pinController;
 #include "Wiegand.h"
 WIEGAND wg;
 
+struct Employee {
+  String name;
+  String dob;
+  String nik;
+  String nip;
+};
+Employee employee; 
+
 
 unsigned long prevMillisWiegand;
 String wgMode = "validate"; // default mode wiegand
