@@ -3,26 +3,38 @@
 #include "WebService.h"
 #include "Parser.h"
 #include "PinController.h"
+#include "MySQLConnector.h"
 #include <ArduinoJson.h>
 
-// Config
+// Network profile cofiguration
+IPAddress whitelist[] = {
+  IPAddress(10, 251, 12, 133),
+  IPAddress(10, 251, 12, 109),
+  IPAddress(10, 251, 2, 103)
+};
 byte mac[] = { 0xDE, 0xAA, 0xBE, 0xEF, 0x00, 0x02 };
 IPAddress staticIP(10, 251, 2, 126);
 IPAddress gateway(10, 251, 2, 1);
 IPAddress dns(10, 251, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
-
-// Whitelist IP
-IPAddress whitelist[] = {
-    IPAddress(10, 251, 12, 133),
-    IPAddress(10, 251, 12, 109),
-    IPAddress(10, 251, 2, 103)
-};
-
-// Ethernet connection object
 EthernetManager eth(mac, staticIP, dns, gateway, subnet);
+
+// Database configuration
+IPAddress mysql_address(10, 251, 2, 114);
+MySQLConnector mysql;
+
+// Web service configuration
 WebService http(eth, 80);
+
+// GPIO configuration
 PinController pinController;
+
+// Sensor or relay or ext. module
+#include "Wiegand.h"
+WIEGAND wg;
+
+
+unsigned long prevMillisWiegand;
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -163,21 +175,35 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   pinMode(32, OUTPUT);
+
+  // Network ethernet setup
   eth.begin(5);
   eth.setWhitelist(whitelist, sizeof(whitelist) / sizeof(whitelist[0]));
+  
+  // Webservice Setup
   http.begin();
-
-  // Setup route handler
   http.on("/core", coreHandling);
   http.on("/gpio", gpioHandling);
 
-  // Setup button pins (example: pin 15 as button input)
-  // You can add more buttons by calling pinController.setPinAsInput(pinNumber)
+  // Setup button pins
   pinController.setPinAsInput(13);
   pinController.setPinAsInput(14);
+  
+  // Setup MySQL connection (example configuration)
+  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
+    Serial.println("Connected to MySQL database");
+  } else {
+    Serial.println("Failed to connect to MySQL database");
+  }
+
+  // Wiegand scanner RFID setup
+  wg.begin(16, 17);
 }
 
 void loop() {
+  // Global current millis for countdown
+  unsigned long currentMillis = millis();
+
   // waiting client forever
   http.handleClient();
 
@@ -187,13 +213,55 @@ void loop() {
   // Scan for button presses
   pinController.scanButtons();
 
+  // Receptionist btn check routine
   if (pinController.getState(13) == 1) {
     // Button on pin 15 is pressed, do something
     Serial.println("Button 13 pressed");
     pinController.setPin(32, 1, 5000);
   }
+
+  // Exit btn check routine
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
     pinController.setPin(32, 1, 5000);
   }
+  
+
+  // Wiegand routine
+  if (wg.available()){
+
+    // check if interval has passed
+    if (currentMillis - prevMillisWiegand >= 2000) {
+      bool is_opened = false;
+      prevMillisWiegand = currentMillis;  // save the last time
+      String wgData = String(wg.getCode());
+
+      // Skip noise
+      if (wgData.length() < 6){
+        return;
+      }
+      if (mysql.queryf("SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", wgData)) {
+        // Fetch and process rows
+        while (mysql.fetchRow()) {
+          int id = mysql.getInt(0);
+          const char* name = mysql.getString(1);
+          Serial.print("ID: ");
+          Serial.print(id);
+          Serial.print(", Name: ");
+          Serial.println(name);
+          if (!is_opened){
+            is_opened = true;
+            pinController.setPin(32, 1, 3000);
+          }
+        }
+        mysql.closeCursor();
+      }
+      Serial.print("Wiegand scan result : ");
+      Serial.println(wgData);
+
+    }
+  }
+  
+                   
+  
 }
