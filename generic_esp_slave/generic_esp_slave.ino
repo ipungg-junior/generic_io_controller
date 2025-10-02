@@ -23,7 +23,7 @@ EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 // Database configuration
 IPAddress mysql_address(10, 251, 2, 114);
 MySQLConnector mysql;
-TransactionLog log;
+TransactionLog logger;
 TransactionEntry entry;
 
 // Web service configuration
@@ -239,9 +239,9 @@ bool validateCardId(String cardNumber) {
         Serial.println(name);
       }      
     }
-    entry.id = id;
-    snprintf(entry.uid, sizeof(entry.uid), wgData);
-    log.add(entry);
+    entry.id = static_cast<uint16_t>((id.toInt()));
+    snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
+    logger.add(entry);
 
     mysql.closeCursor();
     
@@ -281,12 +281,13 @@ void setup() {
   // Wiegand scanner RFID setup
   wg.begin(16, 17);
   
+  logger.begin();
   // Tampilkan semua log
-  for (int i = 0; i < log.size(); i++) {
-      entry = log.get(i);
+  for (int i = 0; i < logger.size(); i++) {
+      entry = logger.get(i);
       Serial.print("Log #"); Serial.print(i);
-      Serial.print(" ID: "); Serial.print(e.id);
-      Serial.print(" UID: "); Serial.println(e.uid);
+      Serial.print(" ID: "); Serial.print(entry.id);
+      Serial.print(" UID: "); Serial.println(entry.uid);
   }
 }
 
@@ -306,14 +307,13 @@ void loop() {
   // Receptionist btn check routine
   if (pinController.getState(13) == 1) {
     // Button on pin 15 is pressed, do something
-    Serial.println("Button 13 pressed");
     pinController.setPin(32, 1, 5000);
   }
 
   // Exit btn check routine
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 5000);
+    pinController.setPin(32, 1, 1500);
   }
   
 
@@ -334,10 +334,8 @@ void loop() {
       if (validateCardId(wgData)){
         if (!is_opened){
           is_opened = true;
-          pinController.setPin(32, 1, 3000);
+          pinController.setPin(32, 1, 1500);
           
-          // Log the transaction
-          logger.addLog(1, "User Name", wgData.c_str());
         }
       }
 
