@@ -1,6 +1,11 @@
 #include "MySQLConnector.h"
 
-MySQLConnector::MySQLConnector() : client(nullptr), connection(nullptr), currentCursor(nullptr), currentRow(nullptr), isConnected(false) {
+MySQLConnector::MySQLConnector() : client(nullptr), connection(nullptr), currentCursor(nullptr), currentRow(nullptr), isConnected(false), lastQuery(0) {
+  // Initialize the save fields
+  saveUser[0] = '\0';
+  savePassword[0] = '\0';
+  saveDatabase[0] = '\0';
+  savePort = 0;
 }
 
 MySQLConnector::~MySQLConnector() {
@@ -23,6 +28,50 @@ bool MySQLConnector::connect(const IPAddress& server, int port, const char* user
   // Connect to MySQL server
   if (connection->connect(server, port, (char*)user, (char*)password, (char*)database)) {
     isConnected = true;
+    // Copy the config values
+    saveAddress = server;
+    savePort = port;
+    strncpy(saveUser, user, sizeof(saveUser) - 1);
+    saveUser[sizeof(saveUser) - 1] = '\0';
+    strncpy(savePassword, password, sizeof(savePassword) - 1);
+    savePassword[sizeof(savePassword) - 1] = '\0';
+    strncpy(saveDatabase, database, sizeof(saveDatabase) - 1);
+    saveDatabase[sizeof(saveDatabase) - 1] = '\0';
+    lastQuery = millis();
+    return true;
+  } else {
+    isConnected = false;
+    // Clean up on failure
+    delete connection;
+    connection = nullptr;
+    delete client;
+    client = nullptr;
+    return false;
+  }
+}
+
+bool MySQLConnector::reconnect() {
+  // Clean up existing connection
+  if (connection) {
+    connection->close();
+    delete connection;
+    connection = nullptr;
+  }
+  
+  if (client) {
+    delete client;
+    client = nullptr;
+  }
+
+  // Create a new EthernetClient
+  client = new EthernetClient();
+  
+  // Create a new connection
+  connection = new MySQL_Connection(client);
+  
+  // Connect to MySQL server
+  if (connection->connect(saveAddress, savePort, saveUser, savePassword, saveDatabase)) {
+    isConnected = true;
     return true;
   } else {
     isConnected = false;
@@ -40,6 +89,19 @@ bool MySQLConnector::query(const char* sql) {
     Serial.println("Not connected to database");
     return false;
   }
+  
+  // Check if reconnection is needed (more than 1 minute since last query)
+  if (millis() - lastQuery >= 60000) {
+    Serial.println("Reconnecting to database...");
+    if (!reconnect()) {
+      Serial.println("Failed to reconnect to database!");
+      return false;
+    }
+    Serial.println("Reconnected to database successfully");
+  }
+  
+  // Update last query time
+  lastQuery = millis();
   
   // Check if this is a SELECT query
   if (strncmp(sql, "SELECT", 6) == 0 || strncmp(sql, "select", 6) == 0) {
@@ -84,6 +146,19 @@ MySQL_Cursor* MySQLConnector::select(const char* sql) {
     return nullptr;
   }
   
+  // Check if reconnection is needed (more than 1 minute since last query)
+  if (millis() - lastQuery >= 60000) {
+    Serial.println("Reconnecting to database...");
+    if (!reconnect()) {
+      Serial.println("Failed to reconnect to database!");
+      return nullptr;
+    }
+    Serial.println("Reconnected to database successfully");
+  }
+  
+  // Update last query time
+  lastQuery = millis();
+  
   if (currentCursor) {
       delete currentCursor;
     }
@@ -107,6 +182,19 @@ MySQL_Cursor* MySQLConnector::selectf(const char* format, ...) {
     Serial.println("Not connected to database");
     return nullptr;
   }
+  
+  // Check if reconnection is needed (more than 1 minute since last query)
+  if (millis() - lastQuery >= 60000) {
+    Serial.println("Reconnecting to database...");
+    if (!reconnect()) {
+      Serial.println("Failed to reconnect to database!");
+      return nullptr;
+    }
+    Serial.println("Reconnected to database successfully");
+  }
+  
+  // Update last query time
+  lastQuery = millis();
   
   // Create a buffer for the formatted query
   char queryBuffer[256];  // Adjust size as needed for your queries
@@ -157,6 +245,19 @@ bool MySQLConnector::queryf(const char* format, ...) {
     return false;
   }
   
+  // Check if reconnection is needed (more than 1 minute since last query)
+  if (millis() - lastQuery >= 60000) {
+    Serial.println("Reconnecting to database...");
+    if (!reconnect()) {
+      Serial.println("Failed to reconnect to database!");
+      return false;
+    }
+    Serial.println("Reconnected to database successfully");
+  }
+  
+  // Update last query time
+  lastQuery = millis();
+  
   // Create a buffer for the formatted query
   char queryBuffer[256];  // Adjust size as needed for your queries
   
@@ -205,10 +306,24 @@ bool MySQLConnector::queryf(const char* format, ...) {
 }
 
 bool MySQLConnector::selectQuery(const char* sql, QueryResult& result) {
+
   if (!isConnected || !connection) {
     Serial.println("Not connected to database");
     return false;
   }
+  
+  // Check if reconnection is needed (more than 1 minute since last query)
+  if (millis() - lastQuery >= 60000) {
+    Serial.println("Reconnecting to database...");
+    if (!reconnect()) {
+      Serial.println("Failed to reconnect to database!");
+      return false;
+    }
+    Serial.println("Reconnected to database successfully");
+  }
+  
+  // Update last query time
+  lastQuery = millis();
   
   // Check if this is a SELECT query
   if (strncmp(sql, "SELECT", 6) != 0 && strncmp(sql, "select", 6) != 0) {
@@ -275,6 +390,19 @@ bool MySQLConnector::selectQueryf(QueryResult& result, const char* format, ...) 
     Serial.println("Not connected to database");
     return false;
   }
+  
+  // Check if reconnection is needed (more than 1 minute since last query)
+  if (millis() - lastQuery >= 60000) {
+    Serial.println("Reconnecting to database...");
+    if (!reconnect()) {
+      Serial.println("Failed to reconnect to database!");
+      return false;
+    }
+    Serial.println("Reconnected to database successfully");
+  }
+  
+  // Update last query time
+  lastQuery = millis();
   
   // Create a buffer for the formatted query
   char queryBuffer[256];  // Adjust size as needed for your queries

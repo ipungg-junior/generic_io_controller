@@ -25,6 +25,16 @@ private:
   row_values* currentRow;
   bool isConnected;
 
+  // Save DB authenticate
+  IPAddress saveAddress;
+  int savePort;
+  char saveUser[32];
+  char savePassword[32];
+  char saveDatabase[32];
+
+  // unsigned time millis for last query
+  unsigned long lastQuery;
+
 public:
   MySQLConnector();
   ~MySQLConnector();
