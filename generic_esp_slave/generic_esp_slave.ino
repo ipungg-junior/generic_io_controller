@@ -5,6 +5,7 @@
 #include "PinController.h"
 #include "MySQLConnector.h"
 #include <ArduinoJson.h>
+#include "TransactionLog.h"
 
 // Network profile cofiguration
 IPAddress whitelist[] = {
@@ -22,6 +23,8 @@ EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 // Database configuration
 IPAddress mysql_address(10, 251, 2, 114);
 MySQLConnector mysql;
+TransactionLog log;
+TransactionEntry entry;
 
 // Web service configuration
 WebService http(eth, 80);
@@ -222,19 +225,23 @@ bool validateCardId(String cardNumber) {
   // Example using the new selectQueryf method with QueryResult and variable parameters
   QueryResult result;
   if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
-    
+    String id;
+    String name;
     // Process each row
     for (int i = 0; i < result.size(); i++) {
       RowData& row = result[i];
       if (row.values.size() >= 2) {
-        String id = row.values[0];
-        String name = row.values[1];
+        id = row.values[0];
+        name = row.values[1];
         Serial.print("ID: ");
         Serial.print(id);
         Serial.print(", Name: ");
         Serial.println(name);
       }      
     }
+    entry.id = id;
+    snprintf(entry.uid, sizeof(entry.uid), wgData);
+    log.add(entry);
 
     mysql.closeCursor();
     
@@ -273,6 +280,14 @@ void setup() {
 
   // Wiegand scanner RFID setup
   wg.begin(16, 17);
+  
+  // Tampilkan semua log
+  for (int i = 0; i < log.size(); i++) {
+      entry = log.get(i);
+      Serial.print("Log #"); Serial.print(i);
+      Serial.print(" ID: "); Serial.print(e.id);
+      Serial.print(" UID: "); Serial.println(e.uid);
+  }
 }
 
 void loop() {
@@ -320,6 +335,9 @@ void loop() {
         if (!is_opened){
           is_opened = true;
           pinController.setPin(32, 1, 3000);
+          
+          // Log the transaction
+          logger.addLog(1, "User Name", wgData.c_str());
         }
       }
 
