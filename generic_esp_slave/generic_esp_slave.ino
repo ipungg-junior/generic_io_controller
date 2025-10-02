@@ -5,6 +5,7 @@
 #include "PinController.h"
 #include "MySQLConnector.h"
 #include <ArduinoJson.h>
+#include "TransactionLog.h"
 
 // Network profile cofiguration
 IPAddress whitelist[] = {
@@ -22,6 +23,8 @@ EthernetManager eth(mac, staticIP, dns, gateway, subnet);
 // Database configuration
 IPAddress mysql_address(10, 251, 2, 114);
 MySQLConnector mysql;
+TransactionLog logger;
+TransactionEntry entry;
 
 // Web service configuration
 WebService http(eth, 80);
@@ -222,19 +225,23 @@ bool validateCardId(String cardNumber) {
   // Example using the new selectQueryf method with QueryResult and variable parameters
   QueryResult result;
   if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
-    
+    String id;
+    String name;
     // Process each row
     for (int i = 0; i < result.size(); i++) {
       RowData& row = result[i];
       if (row.values.size() >= 2) {
-        String id = row.values[0];
-        String name = row.values[1];
+        id = row.values[0];
+        name = row.values[1];
         Serial.print("ID: ");
         Serial.print(id);
         Serial.print(", Name: ");
         Serial.println(name);
       }      
     }
+    entry.id = static_cast<uint16_t>((id.toInt()));
+    snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
+    logger.add(entry);
 
     mysql.closeCursor();
     
@@ -273,6 +280,15 @@ void setup() {
 
   // Wiegand scanner RFID setup
   wg.begin(16, 17);
+  
+  logger.begin();
+  // Tampilkan semua log
+  for (int i = 0; i < logger.size(); i++) {
+      entry = logger.get(i);
+      Serial.print("Log #"); Serial.print(i);
+      Serial.print(" ID: "); Serial.print(entry.id);
+      Serial.print(" UID: "); Serial.println(entry.uid);
+  }
 }
 
 void loop() {
@@ -291,14 +307,13 @@ void loop() {
   // Receptionist btn check routine
   if (pinController.getState(13) == 1) {
     // Button on pin 15 is pressed, do something
-    Serial.println("Button 13 pressed");
     pinController.setPin(32, 1, 5000);
   }
 
   // Exit btn check routine
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 5000);
+    pinController.setPin(32, 1, 1500);
   }
   
 
@@ -319,7 +334,8 @@ void loop() {
       if (validateCardId(wgData)){
         if (!is_opened){
           is_opened = true;
-          pinController.setPin(32, 1, 3000);
+          pinController.setPin(32, 1, 1500);
+          
         }
       }
 
