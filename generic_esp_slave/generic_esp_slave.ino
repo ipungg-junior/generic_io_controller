@@ -33,18 +33,8 @@ PinController pinController;
 #include "Wiegand.h"
 WIEGAND wg;
 
-struct Employee {
-  String name;
-  String dob;
-  String nik;
-  String nip;
-};
-Employee employee; 
-
 
 unsigned long prevMillisWiegand;
-unsigned long startChangeMode;
-String wgMode = "validate"; // default mode wiegand
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -169,6 +159,52 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
     client.print("}");
     ESP.restart();
   }
+  else if (cmd == "register_card") {
+
+    // valid requets will change wgMode to register mode
+    unsigned long startChangeMode = millis();
+    while (true){
+
+      unsigned long currentMillis = millis();
+
+      if (currentMillis - startChangeMode >= 3000) {
+        client.println("HTTP/1.1 400 Bad Request");
+        client.println("Content-Type: application/json");
+        client.println("Connection: close");
+        client.println();
+        client.print("{\"status\":true,");
+        client.print("\"message\":\"Wiegand timeout\"}");
+        break;
+      } 
+      else {
+
+        if (wg.available()){
+          String wgData = String(wg.getCode());
+
+          // Skip noise
+          if (wgData.length() < 6){
+            return;
+          }
+          Serial.print("Found for register : ");
+          Serial.println(wgData);
+          client.println("HTTP/1.1 200 OK");
+          client.println("Content-Type: application/json");
+          client.println("Connection: close");
+          client.println();
+          client.print("{");
+          client.print("\"status\":true,");
+          client.print("\"uid\":");
+          client.print(wgData);
+          client.print(", \"message\":\"Found card uid\"");
+          client.print("}");
+          break;
+
+        }
+      }
+
+    }
+
+  }
   else {
     client.println("HTTP/1.1 400 Bad Request");
     client.println("Content-Type: application/json");
@@ -179,71 +215,6 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
     client.print("\"message\":\"Unknown command on core\"");
     client.print("}");
   }
-}
-
-void employeeHandling(EthernetClient& client, const String& path, const String& body) {
-  Parser parser(body);
-
-  if (!parser.isValid()) {
-    client.println("HTTP/1.1 400 Bad Request");
-    client.println("Content-Type: application/json");
-    client.println("Connection: close");
-    client.println();
-    client.print("{");
-    client.print("\"status\":false,");
-    client.print("\"message\":\"Invalid json format\"");
-    client.print("}");
-    return;
-  }
-
-  String cmd = parser.getCommand();
-  if (cmd == "register_card") {
-    if (!parser.hasKey("employee_name")) {
-      client.println("HTTP/1.1 400 Bad Request");
-      client.println("Content-Type: application/json");
-      client.println("Connection: close");
-      client.println();
-      client.print("{\"status\":false,");
-      client.print("\"message\":\"Please set employee name!\"}");
-      return;
-    }
-    employee.name = parser.getString("employee_name");
-
-    // DOB request
-    if (!parser.hasKey("employee_dob")) {
-      employee.dob = "";      
-    }else{
-      employee.dob = parser.getString("employee_dob");
-    }
-    
-    // NIK request
-    if (!parser.hasKey("employee_nik")) {
-      employee.nik = "";      
-    }else{
-      employee.nik = parser.getString("employee_nik");
-    }
-
-    // NIP request
-    if (!parser.hasKey("employee_nip")) {
-      employee.nip = "";      
-    }else{
-      employee.nip = parser.getString("employee_nip");
-    }
-
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: application/json");
-    client.println("Connection: close");
-    client.println();
-    client.print("{\"status\":true,");
-    client.print("\"message\":\"Please tap your card (3 second)\"}");
-
-    // valid requets will change wgMode to register mode
-    startChangeMode = millis();
-    wgMode = "register";
-
-  }
-  
-
 }
 
 bool validateCardId(String cardNumber) {
@@ -262,50 +233,18 @@ bool validateCardId(String cardNumber) {
         Serial.print(id);
         Serial.print(", Name: ");
         Serial.println(name);
-      }
-  }
+      }      
+    }
+
+    mysql.closeCursor();
     
     return result.size() > 0;
-  }
-  
-}
-
-bool registerCardId(String cardNumber, Employee& employee) {
-
-  // Example using the new selectQueryf method with QueryResult and variable parameters
-  QueryResult result;
-  if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
-    
-      if (result.size() > 0) {
-        // Card already registered
-        Serial.println("Card already registered!");
-        return false;
-      }
-
-      if (mysql.queryf("INSERT INTO `employee` (name, dob, nik) VALUES ('%s', '%s', '%s)", employee.name, employee.dob, employee.nik)){
-          
-          delay(50);
-          if (mysql.selectQueryf(result, "SELECT id FROM employee WHERE name='%s'", employee.name)){            
-            RowData& row = result[0];
-            String id = row.values[0];
-            if (mysql.queryf("INSERT INTO `employee_card` (employee_id, card_number, nip) VALUES ('%s', '%s', '%s')", id, cardNumber, employee.nip)){
-              return true;
-            }else{
-              return false;
-            }
-          } else{
-            return false;
-          }
-
-      }
-
-  } else{
-    Serial.println("Query failed for checking card!");
+  }else{
+    mysql.closeCursor();
     return false;
   }
   
 }
-
 
 void setup() {
   // put your setup code here, to run once:
@@ -320,7 +259,6 @@ void setup() {
   http.begin();
   http.on("/core", coreHandling);
   http.on("/gpio", gpioHandling);
-  http.on("/employee", employeeHandling);
 
   // Setup button pins
   pinController.setPinAsInput(13);
@@ -378,31 +316,11 @@ void loop() {
         return;
       }
 
-      if (wgMode == "validate"){
-
-        if (validateCardId(wgData)){
-          if (!is_opened){
-            is_opened = true;
-            pinController.setPin(32, 1, 3000);
-          }
+      if (validateCardId(wgData)){
+        if (!is_opened){
+          is_opened = true;
+          pinController.setPin(32, 1, 3000);
         }
-
-      }
-
-      else if (wgMode == "register"){
-        wgMode = "validate";
-
-        if (currentMillis - startChangeMode >= 4000){
-          Serial.println("Timeout register mode");
-        }else{
-          // Call register function
-          Serial.println("Will be register");
-          Serial.print("Name : ");
-          Serial.println(employee.name);
-          Serial.print("Card number : ");
-          Serial.println(wgData);
-        }
-
       }
 
       Serial.print("Wiegand scan result : ");
