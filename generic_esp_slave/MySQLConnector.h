@@ -78,7 +78,11 @@ public:
   // Check if connected
   bool connected() const;
 
+  // Close cursor
   void closeCursor();
+
+  // reconnect db
+  bool reconnect();
 };
 
 #endif
