@@ -91,7 +91,7 @@ bool MySQLConnector::query(const char* sql) {
   }
   
   // Check if reconnection is needed (more than 1 minute since last query)
-  if (millis() - lastQuery >= 60000) {
+  if (millis() - lastQuery >= 240000) {
     Serial.println("Reconnecting to database...");
     if (!reconnect()) {
       Serial.println("Failed to reconnect to database!");
@@ -147,7 +147,7 @@ MySQL_Cursor* MySQLConnector::select(const char* sql) {
   }
   
   // Check if reconnection is needed (more than 1 minute since last query)
-  if (millis() - lastQuery >= 60000) {
+  if (millis() - lastQuery >= 240000) {
     Serial.println("Reconnecting to database...");
     if (!reconnect()) {
       Serial.println("Failed to reconnect to database!");
@@ -184,7 +184,7 @@ MySQL_Cursor* MySQLConnector::selectf(const char* format, ...) {
   }
   
   // Check if reconnection is needed (more than 1 minute since last query)
-  if (millis() - lastQuery >= 60000) {
+  if (millis() - lastQuery >= 240000) {
     Serial.println("Reconnecting to database...");
     if (!reconnect()) {
       Serial.println("Failed to reconnect to database!");
@@ -246,7 +246,7 @@ bool MySQLConnector::queryf(const char* format, ...) {
   }
   
   // Check if reconnection is needed (more than 1 minute since last query)
-  if (millis() - lastQuery >= 60000) {
+  if (millis() - lastQuery >= 240000) {
     Serial.println("Reconnecting to database...");
     if (!reconnect()) {
       Serial.println("Failed to reconnect to database!");
@@ -313,7 +313,7 @@ bool MySQLConnector::selectQuery(const char* sql, QueryResult& result) {
   }
   
   // Check if reconnection is needed (more than 1 minute since last query)
-  if (millis() - lastQuery >= 60000) {
+  if (millis() - lastQuery >= 240000) {
     Serial.println("Reconnecting to database...");
     if (!reconnect()) {
       Serial.println("Failed to reconnect to database!");
@@ -392,7 +392,7 @@ bool MySQLConnector::selectQueryf(QueryResult& result, const char* format, ...) 
   }
   
   // Check if reconnection is needed (more than 1 minute since last query)
-  if (millis() - lastQuery >= 60000) {
+  if (millis() - lastQuery >= 240000) {
     Serial.println("Reconnecting to database...");
     if (!reconnect()) {
       Serial.println("Failed to reconnect to database!");
