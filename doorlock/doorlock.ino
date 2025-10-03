@@ -43,7 +43,7 @@ unsigned long prevMillisWiegand;
 void gpioHandling(EthernetClient& client, const String& path, const String& body);
 void coreHandling(EthernetClient& client, const String& path, const String& body);
 bool validateCardId(String cardNumber);
-bool setDatetime(MySQLConnector* cursor);
+bool setDatetime(MySQLConnector& cursor);
 
 
 void setup() {
@@ -357,10 +357,10 @@ bool validateCardId(String cardNumber) {
   
 }
 
-bool setDatetime(MySQLConnector* cursor) {
+bool setDatetime(MySQLConnector& cursor) {
   try {
     QueryResult result;
-    if (cursor->selectQuery("SELECT NOW() as current_time", result)) {
+    if (cursor.selectQuery("SELECT NOW() as current_time", result)) {
       String datetime_str;
       for (int i = 0; i < result.size(); i++) {
         RowData& row = result[i];
