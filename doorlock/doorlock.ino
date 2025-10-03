@@ -360,7 +360,7 @@ bool validateCardId(String cardNumber) {
 bool setDatetime(MySQLConnector& cursor) {
   try {
     QueryResult result;
-    if (cursor.selectQuery("SELECT NOW() as current_time", result)) {
+    if (cursor.selectQuery("SELECT NOW()", result)) {
       String datetime_str;
       for (int i = 0; i < result.size(); i++) {
         RowData& row = result[i];
