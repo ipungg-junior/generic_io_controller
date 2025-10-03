@@ -1,4 +1,5 @@
 #include <SPI.h>
+#include <time.h>
 #include "EthernetManager.h"
 #include "WebService.h"
 #include "Parser.h"
@@ -36,8 +37,111 @@ PinController pinController;
 #include "Wiegand.h"
 WIEGAND wg;
 
-
 unsigned long prevMillisWiegand;
+
+// Preprocesor function
+void gpioHandling(EthernetClient& client, const String& path, const String& body);
+void coreHandling(EthernetClient& client, const String& path, const String& body);
+bool validateCardId(String cardNumber);
+bool setDatetime(MySQLConnector& cursor);
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  pinMode(32, OUTPUT);
+
+  // Network ethernet setup
+  eth.begin(5);
+  eth.setWhitelist(whitelist, sizeof(whitelist) / sizeof(whitelist[0]));
+  
+  // Webservice Setup
+  http.begin();
+  http.on("/core", coreHandling);
+  http.on("/gpio", gpioHandling);
+
+  // Setup button pins
+  pinController.setPinAsInput(13);
+  pinController.setPinAsInput(14);
+  
+  // Setup MySQL connection (example configuration)
+  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
+    Serial.println("Connected to MySQL database");
+    Serial.println(setDatetime(mysql));
+  } else {
+    Serial.println("Failed to connect to MySQL database");
+  }
+
+  // Wiegand scanner RFID setup
+  wg.begin(16, 17);
+  
+  logger.begin();
+  // Tampilkan semua log
+  for (int i = 0; i < logger.size(); i++) {
+      entry = logger.get(i);
+      Serial.print("Log #"); Serial.print(i);
+      Serial.print(" ID: "); Serial.print(entry.id);
+      Serial.print(" UID: "); Serial.println(entry.uid);
+  }
+}
+
+void loop() {
+  // Global current millis for countdown
+  unsigned long currentMillis = millis();
+
+  // waiting client forever
+  http.handleClient();
+
+  // IO routine
+  pinController.processAutoReverse();
+  
+  // Scan for button presses
+  pinController.scanButtons();
+
+  // Receptionist btn check routine
+  if (pinController.getState(13) == 1) {
+    // Button on pin 15 is pressed, do something
+    pinController.setPin(32, 1, 5000);
+  }
+
+  // Exit btn check routine
+  if (pinController.getState(14) == 1) {
+    // Button on pin 15 is pressed, do something
+    pinController.setPin(32, 1, 1500);
+  }
+  
+
+  // Wiegand routine
+  if (wg.available()){
+
+    // check if interval has passed
+    if (currentMillis - prevMillisWiegand >= 2000) {
+      bool is_opened = false;
+      prevMillisWiegand = currentMillis;  // save the last time
+      String wgData = String(wg.getCode());
+
+      // Skip noise
+      if (wgData.length() < 6){
+        return;
+      }
+
+      if (validateCardId(wgData)){
+        if (!is_opened){
+          is_opened = true;
+          pinController.setPin(32, 1, 1500);
+          
+        }
+      }
+
+      Serial.print("Wiegand scan result : ");
+      Serial.println(wgData);
+
+    }
+  }
+  
+                   
+  
+}
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -253,98 +357,68 @@ bool validateCardId(String cardNumber) {
   
 }
 
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
-  pinMode(32, OUTPUT);
-
-  // Network ethernet setup
-  eth.begin(5);
-  eth.setWhitelist(whitelist, sizeof(whitelist) / sizeof(whitelist[0]));
-  
-  // Webservice Setup
-  http.begin();
-  http.on("/core", coreHandling);
-  http.on("/gpio", gpioHandling);
-
-  // Setup button pins
-  pinController.setPinAsInput(13);
-  pinController.setPinAsInput(14);
-  
-  // Setup MySQL connection (example configuration)
-  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
-    Serial.println("Connected to MySQL database");
-  } else {
-    Serial.println("Failed to connect to MySQL database");
-  }
-
-  // Wiegand scanner RFID setup
-  wg.begin(16, 17);
-  
-  logger.begin();
-  // Tampilkan semua log
-  for (int i = 0; i < logger.size(); i++) {
-      entry = logger.get(i);
-      Serial.print("Log #"); Serial.print(i);
-      Serial.print(" ID: "); Serial.print(entry.id);
-      Serial.print(" UID: "); Serial.println(entry.uid);
-  }
-}
-
-void loop() {
-  // Global current millis for countdown
-  unsigned long currentMillis = millis();
-
-  // waiting client forever
-  http.handleClient();
-
-  // IO routine
-  pinController.processAutoReverse();
-  
-  // Scan for button presses
-  pinController.scanButtons();
-
-  // Receptionist btn check routine
-  if (pinController.getState(13) == 1) {
-    // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 5000);
-  }
-
-  // Exit btn check routine
-  if (pinController.getState(14) == 1) {
-    // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 1500);
-  }
-  
-
-  // Wiegand routine
-  if (wg.available()){
-
-    // check if interval has passed
-    if (currentMillis - prevMillisWiegand >= 2000) {
-      bool is_opened = false;
-      prevMillisWiegand = currentMillis;  // save the last time
-      String wgData = String(wg.getCode());
-
-      // Skip noise
-      if (wgData.length() < 6){
-        return;
-      }
-
-      if (validateCardId(wgData)){
-        if (!is_opened){
-          is_opened = true;
-          pinController.setPin(32, 1, 1500);
-          
+bool setDatetime(MySQLConnector& cursor) {
+  try {
+    QueryResult result;
+    if (cursor.selectQuery("SELECT NOW()", result)) {
+      String datetime_str;
+      for (int i = 0; i < result.size(); i++) {
+        RowData& row = result[i];
+        if (row.values.size() >= 1) {
+          datetime_str = row.values[0];
         }
       }
 
-      Serial.print("Wiegand scan result : ");
-      Serial.println(wgData);
+      if (datetime_str.length() > 0) {
+        Serial.print("MySQL server time: ");
+        Serial.println(datetime_str);
 
+        // Parse MySQL datetime format: "YYYY-MM-DD HH:MM:SS"
+        // Expected format: 2024-01-15 14:30:45
+        int year, month, day, hour, minute, second;
+
+        if (sscanf(datetime_str.c_str(), "%d-%d-%d %d:%d:%d",
+                   &year, &month, &day, &hour, &minute, &second) == 6) {
+
+          // Set ESP32 system time
+          struct tm timeinfo = {0};
+          timeinfo.tm_year = year - 1900;  // tm_year is years since 1900
+          timeinfo.tm_mon = month - 1;     // tm_mon is 0-11
+          timeinfo.tm_mday = day;
+          timeinfo.tm_hour = hour;
+          timeinfo.tm_min = minute;
+          timeinfo.tm_sec = second;
+
+          time_t epoch_time = mktime(&timeinfo);
+
+          struct timeval tv = {0};
+          tv.tv_sec = epoch_time;
+          tv.tv_usec = 0;
+
+          settimeofday(&tv, NULL);
+
+          Serial.println("ESP32 system time synchronized with MySQL server");
+          return true;
+        } else {
+          Serial.println("Failed to parse datetime format");
+          return false;
+        }
+      } else {
+        Serial.println("No datetime received from MySQL");
+        return false;
+      }
+    } else {
+      Serial.println("Failed to query MySQL for current time");
+      return false;
     }
   }
-  
-                   
-  
+  catch (const std::exception& e) {
+    Serial.print("Exception in setDatetime: ");
+    Serial.println(e.what());
+    return false;
+  }
+  catch (...) {
+    Serial.println("Unknown exception in setDatetime");
+    return false;
+  }
 }
