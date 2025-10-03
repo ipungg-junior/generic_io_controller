@@ -1,19 +1,14 @@
-# Generic IO Controller (atmega/esp32/stm32)
+# Doorlock Controller by esp32
 
 ![Dev](https://img.shields.io/badge/Branch-stable-green) 
 
 ## Introduction Project
-
-Learning path for embedded engineering with most popular microcontroller such as esp32 or atmega
+This project is main program for controlling door with [Wiegand card reader](https://www.alibaba.com/countrysearch/CN/wiegand-card-reader.html) which read RFID/Mifare/NFC
 
 
 ## Tech Stack
 
-- Python version 3.13 [download here](https://python.org)
-    
 - Arduino IDE [download here](https://downloads.arduino.cc/arduino-ide/arduino-ide_latest_Windows_64bit.exe)
-    
-- Pip version 24.0
 
 - CH340 Serial Driver (unofficial) [download here](https://www.driverscape.com/download/usb-serial-ch340)
 
@@ -23,10 +18,10 @@ Learning path for embedded engineering with most popular microcontroller such as
 ### Cloning Repository
 ```bash
 # clone repository
-git clone https://github.com/ipungg-junior/generic_io_controller.git
+git clone https://github.com/ipungg-junior/generic_io_controller.git -b doorlock-v2
 
 # Create python env inside repository
-cd generic_io_controller/
+cd generic_io_controller/doorlock
 ```
 
 
