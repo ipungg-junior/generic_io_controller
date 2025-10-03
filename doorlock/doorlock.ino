@@ -1,4 +1,5 @@
 #include <SPI.h>
+#include <time.h>
 #include "EthernetManager.h"
 #include "WebService.h"
 #include "Parser.h"
@@ -356,24 +357,68 @@ bool validateCardId(String cardNumber) {
   
 }
 
-bool setDatetime(MySQLConnector& sql) {
-  try{
-
+bool setDatetime(MySQLConnector* cursor) {
+  try {
     QueryResult result;
-    sql.selectQuery("SELECT NOW()", result);
-    String datetime_now;
-    for (int i = 0; i < result.size(); i++) {
-      RowData& row = result[i];
-      if (row.values.size() >= 1) {
-        datetime_now = row.values[i];
-      }      
-    }
-    Serial.println(datetime_now);
-    return true;
+    if (cursor->selectQuery("SELECT NOW() as current_time", result)) {
+      String datetime_str;
+      for (int i = 0; i < result.size(); i++) {
+        RowData& row = result[i];
+        if (row.values.size() >= 1) {
+          datetime_str = row.values[0];
+        }
+      }
 
+      if (datetime_str.length() > 0) {
+        Serial.print("MySQL server time: ");
+        Serial.println(datetime_str);
+
+        // Parse MySQL datetime format: "YYYY-MM-DD HH:MM:SS"
+        // Expected format: 2024-01-15 14:30:45
+        int year, month, day, hour, minute, second;
+
+        if (sscanf(datetime_str.c_str(), "%d-%d-%d %d:%d:%d",
+                   &year, &month, &day, &hour, &minute, &second) == 6) {
+
+          // Set ESP32 system time
+          struct tm timeinfo = {0};
+          timeinfo.tm_year = year - 1900;  // tm_year is years since 1900
+          timeinfo.tm_mon = month - 1;     // tm_mon is 0-11
+          timeinfo.tm_mday = day;
+          timeinfo.tm_hour = hour;
+          timeinfo.tm_min = minute;
+          timeinfo.tm_sec = second;
+
+          time_t epoch_time = mktime(&timeinfo);
+
+          struct timeval tv = {0};
+          tv.tv_sec = epoch_time;
+          tv.tv_usec = 0;
+
+          settimeofday(&tv, NULL);
+
+          Serial.println("ESP32 system time synchronized with MySQL server");
+          return true;
+        } else {
+          Serial.println("Failed to parse datetime format");
+          return false;
+        }
+      } else {
+        Serial.println("No datetime received from MySQL");
+        return false;
+      }
+    } else {
+      Serial.println("Failed to query MySQL for current time");
+      return false;
+    }
   }
-  catch {
+  catch (const std::exception& e) {
+    Serial.print("Exception in setDatetime: ");
+    Serial.println(e.what());
     return false;
   }
-  
+  catch (...) {
+    Serial.println("Unknown exception in setDatetime");
+    return false;
+  }
 }
