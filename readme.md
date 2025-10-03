@@ -28,5 +28,6 @@ cd generic_io_controller/doorlock
 ***
 
 ## Authors
-#### Muhammad Thoyfur | Software Engineer
+#### [Muhammad Thoyfur](https://github.com/ipungg-junior) | Software Engineer 
+#### [Ahmad Wildan](https://github.com/matwildan?tab=repositories) | Hardware Embedded
 
