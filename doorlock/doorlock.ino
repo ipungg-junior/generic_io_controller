@@ -36,8 +36,111 @@ PinController pinController;
 #include "Wiegand.h"
 WIEGAND wg;
 
-
 unsigned long prevMillisWiegand;
+
+// Preprocesor function
+void gpioHandling(EthernetClient& client, const String& path, const String& body);
+void coreHandling(EthernetClient& client, const String& path, const String& body);
+bool validateCardId(String cardNumber);
+bool setDatetime(MySQLConnector* cursor);
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  pinMode(32, OUTPUT);
+
+  // Network ethernet setup
+  eth.begin(5);
+  eth.setWhitelist(whitelist, sizeof(whitelist) / sizeof(whitelist[0]));
+  
+  // Webservice Setup
+  http.begin();
+  http.on("/core", coreHandling);
+  http.on("/gpio", gpioHandling);
+
+  // Setup button pins
+  pinController.setPinAsInput(13);
+  pinController.setPinAsInput(14);
+  
+  // Setup MySQL connection (example configuration)
+  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
+    Serial.println("Connected to MySQL database");
+    Serial.println(setDatetime(mysql));
+  } else {
+    Serial.println("Failed to connect to MySQL database");
+  }
+
+  // Wiegand scanner RFID setup
+  wg.begin(16, 17);
+  
+  logger.begin();
+  // Tampilkan semua log
+  for (int i = 0; i < logger.size(); i++) {
+      entry = logger.get(i);
+      Serial.print("Log #"); Serial.print(i);
+      Serial.print(" ID: "); Serial.print(entry.id);
+      Serial.print(" UID: "); Serial.println(entry.uid);
+  }
+}
+
+void loop() {
+  // Global current millis for countdown
+  unsigned long currentMillis = millis();
+
+  // waiting client forever
+  http.handleClient();
+
+  // IO routine
+  pinController.processAutoReverse();
+  
+  // Scan for button presses
+  pinController.scanButtons();
+
+  // Receptionist btn check routine
+  if (pinController.getState(13) == 1) {
+    // Button on pin 15 is pressed, do something
+    pinController.setPin(32, 1, 5000);
+  }
+
+  // Exit btn check routine
+  if (pinController.getState(14) == 1) {
+    // Button on pin 15 is pressed, do something
+    pinController.setPin(32, 1, 1500);
+  }
+  
+
+  // Wiegand routine
+  if (wg.available()){
+
+    // check if interval has passed
+    if (currentMillis - prevMillisWiegand >= 2000) {
+      bool is_opened = false;
+      prevMillisWiegand = currentMillis;  // save the last time
+      String wgData = String(wg.getCode());
+
+      // Skip noise
+      if (wgData.length() < 6){
+        return;
+      }
+
+      if (validateCardId(wgData)){
+        if (!is_opened){
+          is_opened = true;
+          pinController.setPin(32, 1, 1500);
+          
+        }
+      }
+
+      Serial.print("Wiegand scan result : ");
+      Serial.println(wgData);
+
+    }
+  }
+  
+                   
+  
+}
 
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
@@ -253,98 +356,24 @@ bool validateCardId(String cardNumber) {
   
 }
 
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
-  pinMode(32, OUTPUT);
+bool setDatetime(MySQLConnector& sql) {
+  try{
 
-  // Network ethernet setup
-  eth.begin(5);
-  eth.setWhitelist(whitelist, sizeof(whitelist) / sizeof(whitelist[0]));
-  
-  // Webservice Setup
-  http.begin();
-  http.on("/core", coreHandling);
-  http.on("/gpio", gpioHandling);
-
-  // Setup button pins
-  pinController.setPinAsInput(13);
-  pinController.setPinAsInput(14);
-  
-  // Setup MySQL connection (example configuration)
-  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
-    Serial.println("Connected to MySQL database");
-  } else {
-    Serial.println("Failed to connect to MySQL database");
-  }
-
-  // Wiegand scanner RFID setup
-  wg.begin(16, 17);
-  
-  logger.begin();
-  // Tampilkan semua log
-  for (int i = 0; i < logger.size(); i++) {
-      entry = logger.get(i);
-      Serial.print("Log #"); Serial.print(i);
-      Serial.print(" ID: "); Serial.print(entry.id);
-      Serial.print(" UID: "); Serial.println(entry.uid);
-  }
-}
-
-void loop() {
-  // Global current millis for countdown
-  unsigned long currentMillis = millis();
-
-  // waiting client forever
-  http.handleClient();
-
-  // IO routine
-  pinController.processAutoReverse();
-  
-  // Scan for button presses
-  pinController.scanButtons();
-
-  // Receptionist btn check routine
-  if (pinController.getState(13) == 1) {
-    // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 5000);
-  }
-
-  // Exit btn check routine
-  if (pinController.getState(14) == 1) {
-    // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 1500);
-  }
-  
-
-  // Wiegand routine
-  if (wg.available()){
-
-    // check if interval has passed
-    if (currentMillis - prevMillisWiegand >= 2000) {
-      bool is_opened = false;
-      prevMillisWiegand = currentMillis;  // save the last time
-      String wgData = String(wg.getCode());
-
-      // Skip noise
-      if (wgData.length() < 6){
-        return;
-      }
-
-      if (validateCardId(wgData)){
-        if (!is_opened){
-          is_opened = true;
-          pinController.setPin(32, 1, 1500);
-          
-        }
-      }
-
-      Serial.print("Wiegand scan result : ");
-      Serial.println(wgData);
-
+    QueryResult result;
+    sql.selectQuery("SELECT NOW()", result);
+    String datetime_now;
+    for (int i = 0; i < result.size(); i++) {
+      RowData& row = result[i];
+      if (row.values.size() >= 1) {
+        datetime_now = row.values[i];
+      }      
     }
+    Serial.println(datetime_now);
+    return true;
+
   }
-  
-                   
+  catch {
+    return false;
+  }
   
 }
