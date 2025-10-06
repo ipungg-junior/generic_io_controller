@@ -117,16 +117,16 @@ void loop() {
     // Button on pin 15 is pressed, do something
     pinController.setPin(32, 1, 5000);
     // Insert transaction by card
-    if (cursor.queryf("CALL InsertLogButton('%d')", 1)) {}
-    cursor.closeCursor();
+    if (mysql.queryf("CALL InsertLogButton('%d')", 1)) {}
+    mysql.closeCursor();
   }
 
   // Exit btn check routine
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
     pinController.setPin(32, 1, 1500);
-    if (cursor.queryf("CALL InsertLogButton('%d')", 2)) {}
-    cursor.closeCursor();
+    if (mysql.queryf("CALL InsertLogButton('%d')", 2)) {}
+    mysql.closeCursor();
   }
   
 
