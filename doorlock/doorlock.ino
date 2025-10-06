@@ -334,7 +334,7 @@ bool validateCardId(String cardNumber) {
 
   // Validate from cache map first, query later if not found
 
-  auto iterator = cache_card.find(card_number);
+  auto iterator = cache_card.find(cardNumber);
 
   if (iterator != cache_card.end()){
     Serial.print("Found card with ID : ");
@@ -342,7 +342,7 @@ bool validateCardId(String cardNumber) {
     entry.id = static_cast<uint16_t>(((iterator->second).toInt()));
     snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
     logger.add(entry);
-    return true
+    return true;
   }
 
   QueryResult result;
