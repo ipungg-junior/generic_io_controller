@@ -305,7 +305,7 @@ bool MySQLConnector::queryf(const char* format, ...) {
   }
 }
 
-bool MySQLConnector::selectQuery(const char* sql, QueryResult& result) {
+bool MySQLConnector::selectQuery(QueryResult& result, const char* sql) {
 
   if (!isConnected || !connection) {
     Serial.println("Not connected to database");

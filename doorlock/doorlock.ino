@@ -7,6 +7,7 @@
 #include "MySQLConnector.h"
 #include <ArduinoJson.h>
 #include "TransactionLog.h"
+#include <unordered_map>
 
 // Network profile cofiguration
 IPAddress whitelist[] = {
@@ -20,7 +21,6 @@ IPAddress gateway(10, 251, 2, 1);
 IPAddress dns(10, 251, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
 EthernetManager eth(mac, staticIP, dns, gateway, subnet);
-
 // Database configuration
 IPAddress mysql_address(10, 251, 2, 114);
 MySQLConnector mysql;
@@ -36,14 +36,16 @@ PinController pinController;
 // Sensor or relay or ext. module
 #include "Wiegand.h"
 WIEGAND wg;
-
 unsigned long prevMillisWiegand;
+
+unordered_map<String, int> cache_card;
 
 // Preprocesor function
 void gpioHandling(EthernetClient& client, const String& path, const String& body);
 void coreHandling(EthernetClient& client, const String& path, const String& body);
 bool validateCardId(String cardNumber);
 bool setDatetime(MySQLConnector& cursor);
+void fetchEmployee(MySQLConnector& cursor);
 
 
 void setup() {
@@ -83,6 +85,10 @@ void setup() {
       Serial.print(" ID: "); Serial.print(entry.id);
       Serial.print(" UID: "); Serial.println(entry.uid);
   }
+
+  // Fetch employee for cache
+  fetchEmployee();
+
 }
 
 void loop() {
@@ -326,7 +332,19 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
 
 bool validateCardId(String cardNumber) {
 
-  // Example using the new selectQueryf method with QueryResult and variable parameters
+  // Validate from cache map first, query later if not found
+
+  auto iterator = cache_card.find(card_number);
+
+  if (iterator != cache_card.end()){
+    Serial.print("Found card with ID : ");
+    Serial.print(iterator->second);
+    entry.id = static_cast<uint16_t>(((iterator->second).toInt()));
+    snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
+    logger.add(entry);
+    return true
+  }
+
   QueryResult result;
   if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
     String id;
@@ -420,5 +438,29 @@ bool setDatetime(MySQLConnector& cursor) {
   catch (...) {
     Serial.println("Unknown exception in setDatetime");
     return false;
+  }
+}
+
+void fetchEmployee(MySQLConnector& cursor){
+
+  // Example using the new selectQueryf method with QueryResult and variable parameters
+  QueryResult result;
+  if (mysql.selectQuery(result, "SELECT employee_id, card_number FROM employee_card")) {
+    String id;
+    String card_number;
+    // Process each row
+    for (int i = 0; i < result.size(); i++) {
+      RowData& row = result[i];
+      if (row.values.size() >= 1) {
+        id = row.values[0];
+        card_number = row.values[1];
+        Serial.print("ID: ");
+        Serial.print(id);
+        Serial.print(", Card: ");
+        Serial.println(card_number);
+      }      
+    }
+    cache_card[card_number] = static_cast<uint16_t>((id.toInt()));
+    mysql.closeCursor();
   }
 }
