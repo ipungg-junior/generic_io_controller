@@ -36,6 +36,7 @@ PinController pinController;
 #include "Wiegand.h"
 WIEGAND wg;
 unsigned long prevMillisWiegand;
+unsigned long prevMillisButton;
 
 #define MAX_CACHE_SIZE 250
 
@@ -112,22 +113,25 @@ void loop() {
   // Scan for button presses
   pinController.scanButtons();
 
-  // Receptionist btn check routine
-  if (pinController.getState(13) == 1) {
-    // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 5000);
-    // Insert transaction by card
-    if (mysql.queryf("CALL InsertLogButton('%d')", 1)) {}
-    mysql.closeCursor();
-  }
+  if (currentMillis - prevMillisButton >= 3000) {
+      prevMillisButton = currentMillis;  // save the last time
+      // Receptionist btn check routine
+      if (pinController.getState(13) == 1) {
+        // Button on pin 15 is pressed, do something
+        pinController.setPin(32, 1, 5000);
+        // Insert transaction by card
+        if (mysql.queryf("CALL InsertLogButton('%d')", 1)) {}
+        mysql.closeCursor();
+      }
 
-  // Exit btn check routine
-  if (pinController.getState(14) == 1) {
-    // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 1500);
-    if (mysql.queryf("CALL InsertLogButton('%d')", 2)) {}
-    mysql.closeCursor();
-  }
+      // Exit btn check routine
+      if (pinController.getState(14) == 1) {
+        // Button on pin 15 is pressed, do something
+        pinController.setPin(32, 1, 1500);
+        if (mysql.queryf("CALL InsertLogButton('%d')", 2)) {}
+        mysql.closeCursor();
+      }
+    }
   
 
   // Wiegand routine
