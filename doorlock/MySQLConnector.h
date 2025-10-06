@@ -64,7 +64,7 @@ public:
   MySQL_Cursor* selectf(const char* format, ...);
   
   // Execute a SELECT query and return results as QueryResult
-  bool selectQuery(const char* sql, QueryResult& result);
+  bool selectQuery(QueryResult& result, const char* sql);
   
   // Execute a SELECT query with variable substitution and return results as QueryResult
   bool selectQueryf(QueryResult& result, const char* format, ...);
