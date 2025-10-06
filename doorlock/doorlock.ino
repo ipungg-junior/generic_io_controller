@@ -1,22 +1,3 @@
-// Platform detection and compatibility
-#if defined(ESP32)
-#define ESP32_PLATFORM true
-#define ATMEGA_PLATFORM false
-#define STM_PLATFORM false
-#endif
-
-#if defined(STM32)
-#define STM_PLATFORM true
-#define ESP32_PLATFORM false
-#define ATMEGA_PLATFORM false
-#endif
-
-#if defined(ATMEGA328P || ATMEGA32 || ATMEGA16 || ATMEGA328)
-#define ATMEGA_PLATFORM true
-#define ESP32_PLATFORM false
-#define STM_PLATFORM false
-#endif
-
 #include <SPI.h>
 #include <time.h>
 #include "EthernetManager.h"
@@ -26,9 +7,6 @@
 #include "MySQLConnector.h"
 #include <ArduinoJson.h>
 #include "TransactionLog.h"
-
-
-
 
 // Network profile cofiguration
 IPAddress whitelist[] = {
@@ -59,7 +37,15 @@ PinController pinController;
 WIEGAND wg;
 unsigned long prevMillisWiegand;
 
-unordered_map<String, int> cache_card;
+#define MAX_CACHE_SIZE 50
+
+struct CacheEntry {
+  String cardNumber;
+  int employeeId;
+};
+
+CacheEntry cache_card[MAX_CACHE_SIZE];
+int cache_count = 0;
 
 // Preprocesor function
 void gpioHandling(EthernetClient& client, const String& path, const String& body);
@@ -109,7 +95,7 @@ void setup() {
   }
 
   // Fetch employee for cache
-  fetchEmployee();
+  fetchEmployee(mysql);
 
 }
 
@@ -356,15 +342,12 @@ bool validateCardId(String cardNumber) {
 
   // Validate from cache map first, query later if not found
 
-  auto iterator = cache_card.find(cardNumber);
-
-  if (iterator != cache_card.end()){
-    Serial.print("Found card with ID : ");
-    Serial.print(iterator->second);
-    entry.id = iterator->second;
-    snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
-    logger.add(entry);
-    return true;
+  for (int i = 0; i < cache_count; i++) {
+    if (cache_card[i].cardNumber == cardNumber) {
+      // Found in cache - use it
+      Serial.println("Found cache");
+      return true;
+    }
   }
 
   QueryResult result;
@@ -400,13 +383,26 @@ bool validateCardId(String cardNumber) {
 bool setDatetime(MySQLConnector& cursor) {
   try {
     QueryResult result;
-    if (cursor.selectQuery("SELECT NOW()", result)) {
+    if (cursor.selectQuery(result, "SELECT NOW()")) {
+
       String datetime_str;
-      for (int i = 0; i < result.size(); i++) {
-        RowData& row = result[i];
+
+      // Process the FIRST row (there should only be one)
+      if (result.size() > 0) {
+        RowData& row = result[0];
         if (row.values.size() >= 1) {
-          datetime_str = row.values[0];
+          datetime_str = row.values[0];  // Get datetime from first column
+          Serial.print("Retrieved datetime: ");
+          Serial.println(datetime_str);
+        } else {
+          Serial.println("No datetime column found");
+          cursor.closeCursor();
+          return false;
         }
+      } else {
+        Serial.println("No datetime row returned");
+        cursor.closeCursor();
+        return false;
       }
 
       if (datetime_str.length() > 0) {
@@ -435,6 +431,7 @@ bool setDatetime(MySQLConnector& cursor) {
           tv.tv_sec = epoch_time;
           tv.tv_usec = 0;
 
+          // Set system time (ESP32 specific - for Arduino, this would need RTC library)
           settimeofday(&tv, NULL);
 
           Serial.println("ESP32 system time synchronized with MySQL server");
@@ -445,10 +442,12 @@ bool setDatetime(MySQLConnector& cursor) {
         }
       } else {
         Serial.println("No datetime received from MySQL");
+        cursor.closeCursor();
         return false;
       }
     } else {
       Serial.println("Failed to query MySQL for current time");
+      cursor.closeCursor();
       return false;
     }
   }
@@ -465,35 +464,54 @@ bool setDatetime(MySQLConnector& cursor) {
 
 void fetchEmployee(MySQLConnector& cursor){
 
-   // Example using the new selectQueryf method with QueryResult and variable parameters
-   QueryResult result;
-   if (cursor.selectQuery(result, "SELECT employee_id, card_number FROM employee_card")) {
-     String id;
-     String card_number;
-     // Process each row
-     for (int i = 0; i < result.size(); i++) {
-       RowData& row = result[i];
-       if (row.values.size() >= 1) {
-         id = row.values[0];
-         card_number = row.values[1];
-         Serial.print("ID: ");
-         Serial.print(id);
-         Serial.print(", Card: ");
-         Serial.println(card_number);
-       }
-     }
-     cache_card[card_number] = id.toInt();
-     cursor.closeCursor();
-   }
+  // Example using the new selectQueryf method with QueryResult and variable parameters
+  QueryResult result;
+  if (cursor.selectQuery(result, "SELECT employee_id, card_number FROM employee_card")) {
+    Serial.print("Found ");
+    Serial.print(result.size());
+    Serial.println(" employee records");
+
+    // Process each row (multiple records)
+    for (int i = 0; i < result.size(); i++) {
+      RowData& row = result[i];
+
+      if (row.values.size() >= 2) {  // Make sure we have both columns
+        String employee_id = row.values[0];    // First column: employee_id
+        String card_number = row.values[1];    // Second column: card_number
+
+        Serial.print("Row ");
+        Serial.print(i + 1);
+        Serial.print(": ID=");
+        Serial.print(employee_id);
+        Serial.print(", Card=");
+        Serial.println(card_number);
+
+        // // Add to cache if there's space
+        // if (cache_count < MAX_CACHE_SIZE) {
+        //   // Avoid String duplication - use reference
+        //   cache_card[cache_count].cardNumber = card_number;
+        //   cache_card[cache_count].employeeId = employee_id.toInt();
+        //   cache_count++;
+        //   Serial.print("Added to cache: ");
+        //   Serial.println(cache_count);
+        // } else {
+        //   Serial.println("Cache full - cannot add more entries");
+        // }
+      } else {
+        Serial.print("Row ");
+        Serial.print(i + 1);
+        Serial.println(": Insufficient columns");
+      }
+    }
+
+    cursor.closeCursor();
+  } else {
+    Serial.println("Failed to fetch employee data");
+  }
 }
 
+
  void safeRestart() {
-  #if defined(ESP32_PLATFORM) && ESP32_PLATFORM
     ESP.restart();
-  #elif defined(STM_PLATFORM) && STM_PLATFORM
-    NVIC_SystemReset(); // STM32 specific
-  #else
-    asm volatile ("  jmp 0"); // AVR/Arduino
-  #endif
 }
 
