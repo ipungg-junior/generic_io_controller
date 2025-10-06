@@ -440,7 +440,7 @@ bool MySQLConnector::connected() const {
 }
 
 void MySQLConnector::closeCursor() {
-   if (currentCursor) {
+   if (connection) {
      delete currentCursor;
      currentCursor = nullptr;
      delete currentRow;

@@ -37,7 +37,7 @@ PinController pinController;
 WIEGAND wg;
 unsigned long prevMillisWiegand;
 
-#define MAX_CACHE_SIZE 50
+#define MAX_CACHE_SIZE 250
 
 struct CacheEntry {
   String cardNumber;
@@ -93,7 +93,7 @@ void setup() {
       Serial.print(" ID: "); Serial.print(entry.id);
       Serial.print(" UID: "); Serial.println(entry.uid);
   }
-
+  setDatetime(mysql);
   // Fetch employee for cache
   fetchEmployee(mysql);
 
@@ -116,12 +116,17 @@ void loop() {
   if (pinController.getState(13) == 1) {
     // Button on pin 15 is pressed, do something
     pinController.setPin(32, 1, 5000);
+    // Insert transaction by card
+    if (cursor.queryf("CALL InsertLogButton('%d')", 1)) {}
+    cursor.closeCursor();
   }
 
   // Exit btn check routine
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
     pinController.setPin(32, 1, 1500);
+    if (cursor.queryf("CALL InsertLogButton('%d')", 2)) {}
+    cursor.closeCursor();
   }
   
 
@@ -143,7 +148,6 @@ void loop() {
         if (!is_opened){
           is_opened = true;
           pinController.setPin(32, 1, 1500);
-          
         }
       }
 
@@ -156,7 +160,6 @@ void loop() {
                    
   
 }
-
 
 void gpioHandling(EthernetClient& client, const String& path, const String& body) {
   Parser parser(body);
@@ -278,7 +281,7 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
     client.print("\"status\":true,");
     client.print("\"message\":\"Trying to restart, see you :)\"");
     client.print("}");
-    safeRestart();
+    ESP.restart();
   }
   else if (cmd == "register_card") {
 
@@ -346,6 +349,12 @@ bool validateCardId(String cardNumber) {
     if (cache_card[i].cardNumber == cardNumber) {
       // Found in cache - use it
       Serial.println("Found cache");
+      entry.id = cache_card[i].employeeId;
+      snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
+      logger.add(entry);
+      // Insert transaction by card
+      if (mysql.queryf("CALL InsertCardData('%d', '%s')", cache_card[i].employeeId, cardNumber)) {}
+      mysql.closeCursor();
       return true;
     }
   }
@@ -369,9 +378,9 @@ bool validateCardId(String cardNumber) {
     entry.id = id.toInt();
     snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
     logger.add(entry);
-
+    // Insert transaction by card
+    if (mysql.queryf("CALL InsertCardData('%d', '%s')", id.toInt(), cardNumber)) {}
     mysql.closeCursor();
-    
     return result.size() > 0;
   }else{
     mysql.closeCursor();
@@ -475,28 +484,19 @@ void fetchEmployee(MySQLConnector& cursor){
     for (int i = 0; i < result.size(); i++) {
       RowData& row = result[i];
 
-      if (row.values.size() >= 2) {  // Make sure we have both columns
+      if (row.values.size() >= 1) {  // Make sure we have both columns
         String employee_id = row.values[0];    // First column: employee_id
         String card_number = row.values[1];    // Second column: card_number
 
-        Serial.print("Row ");
-        Serial.print(i + 1);
-        Serial.print(": ID=");
-        Serial.print(employee_id);
-        Serial.print(", Card=");
-        Serial.println(card_number);
-
         // // Add to cache if there's space
-        // if (cache_count < MAX_CACHE_SIZE) {
-        //   // Avoid String duplication - use reference
-        //   cache_card[cache_count].cardNumber = card_number;
-        //   cache_card[cache_count].employeeId = employee_id.toInt();
-        //   cache_count++;
-        //   Serial.print("Added to cache: ");
-        //   Serial.println(cache_count);
-        // } else {
-        //   Serial.println("Cache full - cannot add more entries");
-        // }
+        if (cache_count < MAX_CACHE_SIZE) {
+          // Avoid String duplication - use reference
+          cache_card[cache_count].cardNumber = card_number;
+          cache_card[cache_count].employeeId = employee_id.toInt();
+          cache_count++;
+        } else {
+          Serial.println("Cache full - cannot add more entries");
+        }
       } else {
         Serial.print("Row ");
         Serial.print(i + 1);
@@ -510,8 +510,7 @@ void fetchEmployee(MySQLConnector& cursor){
   }
 }
 
-
- void safeRestart() {
-    ESP.restart();
+void safeRestart() {
+  ESP.restart();
 }
 
