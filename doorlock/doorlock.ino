@@ -1,3 +1,22 @@
+// Platform detection and compatibility
+#if defined(ESP32)
+#define ESP32_PLATFORM true
+#define ATMEGA_PLATFORM false
+#define STM_PLATFORM false
+#endif
+
+#if defined(STM32)
+#define STM_PLATFORM true
+#define ESP32_PLATFORM false
+#define ATMEGA_PLATFORM false
+#endif
+
+#if defined(ATMEGA328P || ATMEGA32 || ATMEGA16 || ATMEGA328)
+#define ATMEGA_PLATFORM true
+#define ESP32_PLATFORM false
+#define STM_PLATFORM false
+#endif
+
 #include <SPI.h>
 #include <time.h>
 #include "EthernetManager.h"
@@ -7,7 +26,9 @@
 #include "MySQLConnector.h"
 #include <ArduinoJson.h>
 #include "TransactionLog.h"
-#include <unordered_map>
+
+
+
 
 // Network profile cofiguration
 IPAddress whitelist[] = {
@@ -46,6 +67,7 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
 bool validateCardId(String cardNumber);
 bool setDatetime(MySQLConnector& cursor);
 void fetchEmployee(MySQLConnector& cursor);
+void safeRestart();
 
 
 void setup() {
@@ -270,7 +292,7 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
     client.print("\"status\":true,");
     client.print("\"message\":\"Trying to restart, see you :)\"");
     client.print("}");
-    ESP.restart();
+    safeRestart();
   }
   else if (cmd == "register_card") {
 
@@ -339,7 +361,7 @@ bool validateCardId(String cardNumber) {
   if (iterator != cache_card.end()){
     Serial.print("Found card with ID : ");
     Serial.print(iterator->second);
-    entry.id = static_cast<uint16_t>(((iterator->second).toInt()));
+    entry.id = iterator->second;
     snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
     logger.add(entry);
     return true;
@@ -361,7 +383,7 @@ bool validateCardId(String cardNumber) {
         Serial.println(name);
       }      
     }
-    entry.id = static_cast<uint16_t>((id.toInt()));
+    entry.id = id.toInt();
     snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
     logger.add(entry);
 
@@ -443,24 +465,35 @@ bool setDatetime(MySQLConnector& cursor) {
 
 void fetchEmployee(MySQLConnector& cursor){
 
-  // Example using the new selectQueryf method with QueryResult and variable parameters
-  QueryResult result;
-  if (mysql.selectQuery(result, "SELECT employee_id, card_number FROM employee_card")) {
-    String id;
-    String card_number;
-    // Process each row
-    for (int i = 0; i < result.size(); i++) {
-      RowData& row = result[i];
-      if (row.values.size() >= 1) {
-        id = row.values[0];
-        card_number = row.values[1];
-        Serial.print("ID: ");
-        Serial.print(id);
-        Serial.print(", Card: ");
-        Serial.println(card_number);
-      }      
-    }
-    cache_card[card_number] = static_cast<uint16_t>((id.toInt()));
-    mysql.closeCursor();
-  }
+   // Example using the new selectQueryf method with QueryResult and variable parameters
+   QueryResult result;
+   if (cursor.selectQuery(result, "SELECT employee_id, card_number FROM employee_card")) {
+     String id;
+     String card_number;
+     // Process each row
+     for (int i = 0; i < result.size(); i++) {
+       RowData& row = result[i];
+       if (row.values.size() >= 1) {
+         id = row.values[0];
+         card_number = row.values[1];
+         Serial.print("ID: ");
+         Serial.print(id);
+         Serial.print(", Card: ");
+         Serial.println(card_number);
+       }
+     }
+     cache_card[card_number] = id.toInt();
+     cursor.closeCursor();
+   }
 }
+
+ void safeRestart() {
+  #if defined(ESP32_PLATFORM) && ESP32_PLATFORM
+    ESP.restart();
+  #elif defined(STM_PLATFORM) && STM_PLATFORM
+    NVIC_SystemReset(); // STM32 specific
+  #else
+    asm volatile ("  jmp 0"); // AVR/Arduino
+  #endif
+}
+
