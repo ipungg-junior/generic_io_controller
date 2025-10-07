@@ -35,16 +35,12 @@ PinController pinController;
 // Sensor or relay or ext. module
 #include "Wiegand.h"
 WIEGAND wg;
-unsigned long prevMillisWiegand;
-unsigned long prevMillisButton;
 
 #define MAX_CACHE_SIZE 250
-
 struct CacheEntry {
   String cardNumber;
   int employeeId;
 };
-
 CacheEntry cache_card[MAX_CACHE_SIZE];
 int cache_count = 0;
 
@@ -55,12 +51,20 @@ bool validateCardId(String cardNumber);
 bool setDatetime(MySQLConnector& cursor);
 void fetchEmployee(MySQLConnector& cursor);
 void safeRestart();
+void setDoorPin(int pin);
 
+
+// Global variable
+unsigned long prevMillisWiegand;
+unsigned long prevMillisButton;
+int door_pin;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-  pinMode(32, OUTPUT);
+
+  // Set default door pin
+  setDoorPin(32);
 
   // Network ethernet setup
   eth.begin(5);
@@ -76,7 +80,7 @@ void setup() {
   pinController.setPinAsInput(14);
   
   // Setup MySQL connection (example configuration)
-  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock")) {
+  if (mysql.connect(mysql_address, 3306, "udev", "P@ssw0rd*1", "doorlock_dev")) {
     Serial.println("Connected to MySQL database");
     Serial.println(setDatetime(mysql));
   } else {
@@ -521,5 +525,10 @@ void fetchEmployee(MySQLConnector& cursor){
 
 void safeRestart() {
   ESP.restart();
+}
+
+void setDoorPin(int pin) {
+  door_pin = pin;
+  pinMode(pin, OUTPUT);
 }
 
