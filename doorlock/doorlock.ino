@@ -227,7 +227,8 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
     if (parser.hasKey("main_relay")) {
       int relay = parser.getInt("main_relay");
       if (relay == 1){
-        setDoorPin(relay);
+        setDoorPin(pin);
+        pinController.setPin(pin, 0, 0);
         client.println("HTTP/1.1 200 OK");
         client.println("Content-Type: application/json");
         client.println("Connection: close");
@@ -242,6 +243,7 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
         client.print("}");
       }
       else {
+        pinController.setPin(pin, setVal, 0);
         client.println("HTTP/1.1 200 OK");
         client.println("Content-Type: application/json");
         client.println("Connection: close");
