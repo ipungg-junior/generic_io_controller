@@ -87,7 +87,8 @@ Command: `set_pin`
   "command": "set_pin",
   "pin_number": 32,
   "value": 1,
-  "auto_reverse": 5000
+  "auto_reverse": 5000,
+  "main_relay": 1
 }
 ```
 
@@ -95,6 +96,7 @@ Command: `set_pin`
 - `pin_number` (integer, required): GPIO pin number to control
 - `value` (integer, required): Pin state (0 = LOW, 1 = HIGH)
 - `auto_reverse` (integer, optional): Auto-reverse state delay in milliseconds (0 = no auto-reverse)
+- `main_relay` (integer, optional): param for setting the main door relay. if value is "1" the main door relay will be change into pin_number that choosed
 
 **Response**:
 ```json

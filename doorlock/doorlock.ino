@@ -238,11 +238,17 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
     
     if (parser.hasKey("main_relay")) {
       int relay = parser.getInt("main_relay");
-      setDoorPin(relay);
-      client.print(", \"message\":\"Main relay for doorlock was change to ");
-      client.print(pin);
-      client.print("\"");
-      client.print("}");
+      if (relay == 1){
+        setDoorPin(relay);
+        client.print(", \"message\":\"Main relay for doorlock was change to ");
+        client.print(pin);
+        client.print("\"");
+        client.print("}");
+      }
+      else {
+        client.print(", \"message\":\"Pin io setting up completed\"");
+        client.print("}");
+      }
     }
     else {
       client.print(", \"message\":\"Pin io setting up completed\"");
