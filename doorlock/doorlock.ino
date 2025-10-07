@@ -11,7 +11,7 @@
 // Network profile cofiguration
 IPAddress whitelist[] = {
   IPAddress(10, 251, 12, 133),
-  IPAddress(10, 251, 12, 109),
+  IPAddress(10, 251, 2, 109),
   IPAddress(10, 251, 2, 103)
 };
 byte mac[] = { 0xDE, 0xAA, 0xBE, 0xEF, 0x00, 0x02 };
@@ -59,7 +59,8 @@ unsigned long prevMillisWiegand;
 unsigned long prevMillisButton;
 int door_pin = 32;
 
-void setup() {
+void setup() 
+{
   // put your setup code here, to run once:
   Serial.begin(115200);
 
@@ -80,7 +81,7 @@ void setup() {
   pinController.setPinAsInput(14);
   
   // Setup MySQL connection (example configuration)
-  if (mysql.connect(mysql_address, 3306, "udev", "P@ssw0rd*1", "doorlock_dev")) {
+  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock_dev")) {
     Serial.println("Connected to MySQL database");
     Serial.println(setDatetime(mysql));
   } else {
@@ -104,7 +105,8 @@ void setup() {
 
 }
 
-void loop() {
+void loop() 
+{
   // Global current millis for countdown
   unsigned long currentMillis = millis();
 
@@ -174,7 +176,8 @@ void loop() {
   
 }
 
-void gpioHandling(EthernetClient& client, const String& path, const String& body) {
+void gpioHandling(EthernetClient& client, const String& path, const String& body) 
+{
   Parser parser(body);
 
   if (!parser.isValid()) {
@@ -285,7 +288,8 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
   }
 }
 
-void coreHandling(EthernetClient& client, const String& path, const String& body) {
+void coreHandling(EthernetClient& client, const String& path, const String& body) 
+{
   Parser parser(body);
 
   if (!parser.isValid()) {
@@ -367,7 +371,8 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
   }
 }
 
-bool validateCardId(String cardNumber) {
+bool validateCardId(String cardNumber) 
+{
 
   // Validate from cache map first, query later if not found
 
@@ -415,7 +420,8 @@ bool validateCardId(String cardNumber) {
   
 }
 
-bool setDatetime(MySQLConnector& cursor) {
+bool setDatetime(MySQLConnector& cursor) 
+{
   try {
     QueryResult result;
     if (cursor.selectQuery(result, "SELECT NOW()")) {
@@ -497,7 +503,8 @@ bool setDatetime(MySQLConnector& cursor) {
   }
 }
 
-void fetchEmployee(MySQLConnector& cursor){
+void fetchEmployee(MySQLConnector& cursor)
+{
 
   // Example using the new selectQueryf method with QueryResult and variable parameters
   QueryResult result;
@@ -536,11 +543,13 @@ void fetchEmployee(MySQLConnector& cursor){
   }
 }
 
-void safeRestart() {
+void safeRestart() 
+{
   ESP.restart();
 }
 
-void setDoorPin(int pin) {
+void setDoorPin(int pin) 
+{
   door_pin = pin;
   pinMode(pin, OUTPUT);
 }
