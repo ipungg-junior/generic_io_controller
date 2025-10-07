@@ -221,17 +221,30 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
       pinController.setPin(pin, setVal, 0);
     }
 
+
+    // This main block response
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: application/json");
     client.println("Connection: close");
     client.println();
-
     client.print("{");
     client.print("\"status\":true,");
     client.print("\"pin_num\":");
     client.print(pin);
-    client.print(", \"message\":\"Pin io setting up completed\"");
-    client.print("}");
+
+    
+    if (parser.hasKey("main_relay")) {
+      int relay = parser.getInt("main_relay");
+      setDoorPin(relay);
+      client.print(", \"message\":\"Main relay for doorlock was change to ");
+      client.print(pin);
+      client.print("\"");
+      client.print("}");
+    }
+    else {
+      client.print(", \"message\":\"Pin io setting up completed\"");
+      client.print("}");
+    }
 
   }
   else if (cmd == "off_all") {
