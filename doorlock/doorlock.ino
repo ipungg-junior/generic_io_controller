@@ -97,7 +97,7 @@ void setup()
       entry = logger.get(i);
       Serial.print("Log #"); Serial.print(i);
       Serial.print(" ID: "); Serial.print(entry.id);
-      Serial.print(" UID: "); Serial.println(entry.uid);
+      Serial.print(" UID: "); Serial.print(entry.uid);
   }
   setDatetime(mysql);
   // Fetch employee for cache
@@ -223,34 +223,46 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
       // No auto reverse, just set the pin
       pinController.setPin(pin, setVal, 0);
     }
-
-
-    // This main block response
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: application/json");
-    client.println("Connection: close");
-    client.println();
-    client.print("{");
-    client.print("\"status\":true,");
-    client.print("\"pin_num\":");
-    client.print(pin);
-
     
     if (parser.hasKey("main_relay")) {
       int relay = parser.getInt("main_relay");
       if (relay == 1){
         setDoorPin(relay);
+        client.println("HTTP/1.1 200 OK");
+        client.println("Content-Type: application/json");
+        client.println("Connection: close");
+        client.println();
+        client.print("{");
+        client.print("\"status\":true,");
+        client.print("\"pin_num\":");
+        client.print(pin);
         client.print(", \"message\":\"Main relay for doorlock was change to ");
         client.print(pin);
         client.print("\"");
         client.print("}");
       }
       else {
+        client.println("HTTP/1.1 200 OK");
+        client.println("Content-Type: application/json");
+        client.println("Connection: close");
+        client.println();
+        client.print("{");
+        client.print("\"status\":true,");
+        client.print("\"pin_num\":");
+        client.print(pin);
         client.print(", \"message\":\"Pin io setting up completed\"");
         client.print("}");
       }
     }
     else {
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: application/json");
+      client.println("Connection: close");
+      client.println();
+      client.print("{");
+      client.print("\"status\":true,");
+      client.print("\"pin_num\":");
+      client.print(pin);
       client.print(", \"message\":\"Pin io setting up completed\"");
       client.print("}");
     }
@@ -270,13 +282,11 @@ void gpioHandling(EthernetClient& client, const String& path, const String& body
     client.print("}");
   }
   else if (cmd == "on_all") {
+    pinController.onAll();
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: application/json");
     client.println("Connection: close");
     client.println();
-
-    pinController.onAll();
-
     client.print("{");
     client.print("\"status\":true,");
     client.print("\"message\":\"Set all GPIO to 1 (on)\"");
