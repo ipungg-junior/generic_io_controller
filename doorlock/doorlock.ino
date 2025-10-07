@@ -57,7 +57,7 @@ void setDoorPin(int pin);
 // Global variable
 unsigned long prevMillisWiegand;
 unsigned long prevMillisButton;
-int door_pin;
+int door_pin = 32;
 
 void setup() {
   // put your setup code here, to run once:
@@ -121,7 +121,7 @@ void loop() {
   // Receptionist btn check routine
   if (pinController.getState(13) == 1) {
     // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 5000);
+    pinController.setPin(door_pin, 1, 5000);
     if (currentMillis - prevMillisButton >= 3000) {
       prevMillisButton = currentMillis;  // save the last time
       // Insert transaction by card
@@ -130,10 +130,11 @@ void loop() {
     }
   }
 
+
   // Exit btn check routine
   if (pinController.getState(14) == 1) {
     // Button on pin 15 is pressed, do something
-    pinController.setPin(32, 1, 1500);
+    pinController.setPin(door_pin, 1, 1500);
     if (currentMillis - prevMillisButton >= 3000) {
       prevMillisButton = currentMillis;  // save the last time
       if (mysql.queryf("CALL InsertLogButton('%d')", 2)) {}
@@ -141,7 +142,6 @@ void loop() {
     }
   }
     
-  
 
   // Wiegand routine
   if (wg.available()){
@@ -160,7 +160,7 @@ void loop() {
       if (validateCardId(wgData)){
         if (!is_opened){
           is_opened = true;
-          pinController.setPin(32, 1, 1500);
+          pinController.setPin(door_pin, 1, 1500);
         }
       }
 
