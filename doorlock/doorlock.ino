@@ -8,12 +8,6 @@
 #include <ArduinoJson.h>
 #include "TransactionLog.h"
 
-// Network profile cofiguration
-IPAddress whitelist[] = {
-  IPAddress(10, 251, 12, 133),
-  IPAddress(10, 251, 2, 109),
-  IPAddress(10, 251, 2, 103)
-};
 byte mac[] = { 0xDE, 0xAA, 0xBE, 0xEF, 0x00, 0x02 };
 IPAddress staticIP(10, 251, 2, 126);
 IPAddress gateway(10, 251, 2, 1);
@@ -44,6 +38,9 @@ struct CacheEntry {
 CacheEntry cache_card[MAX_CACHE_SIZE];
 int cache_count = 0;
 
+IPAddress* dynamicWhitelist = nullptr;
+int dynamicWhitelistCount = 0;
+
 // Preprocesor function
 void gpioHandling(EthernetClient& client, const String& path, const String& body);
 void coreHandling(EthernetClient& client, const String& path, const String& body);
@@ -52,6 +49,7 @@ bool setDatetime(MySQLConnector& cursor);
 void fetchEmployee(MySQLConnector& cursor);
 void safeRestart();
 void setDoorPin(int pin);
+void fetchWishlist();
 
 
 // Global variable
@@ -69,7 +67,6 @@ void setup()
 
   // Network ethernet setup
   eth.begin(5);
-  eth.setWhitelist(whitelist, sizeof(whitelist) / sizeof(whitelist[0]));
   
   // Webservice Setup
   http.begin();
@@ -572,3 +569,35 @@ void setDoorPin(int pin)
   pinMode(pin, OUTPUT);
 }
 
+void fetchWishlist(){
+  // Free previous dynamic whitelist if exists
+  if (dynamicWhitelist) {
+    delete[] dynamicWhitelist;
+    dynamicWhitelist = nullptr;
+    dynamicWhitelistCount = 0;
+  }
+
+  // SELECT from DB all record table 'whitelisted_ips' field 'whitelist_ip'
+  QueryResult result;
+  if (mysql.selectQuery(result, "SELECT whitelist_ip FROM whitelisted_ips")) {
+    dynamicWhitelistCount = result.size();
+    if (dynamicWhitelistCount > 0) {
+      dynamicWhitelist = new IPAddress[dynamicWhitelistCount];
+      for (int i = 0; i < dynamicWhitelistCount; i++) {
+        String ipStr = result[i].values[0];
+        dynamicWhitelist[i] = IPAddress(ipStr.c_str());
+      }
+      // Set the whitelist in EthernetManager
+      eth.setWhitelist(dynamicWhitelist, dynamicWhitelistCount);
+      Serial.print("Fetched ");
+      Serial.print(dynamicWhitelistCount);
+      Serial.println(" whitelisted IPs from database");
+    } else {
+      Serial.println("No whitelisted IPs found in database");
+    }
+    mysql.closeCursor();
+  } else {
+    Serial.println("Failed to fetch whitelisted IPs from database");
+    mysql.closeCursor();
+  }
+}
