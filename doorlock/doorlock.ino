@@ -523,7 +523,7 @@ void fetchEmployee(MySQLConnector& cursor)
 
   // Example using the new selectQueryf method with QueryResult and variable parameters
   QueryResult result;
-  if (cursor.selectQuery(result, "SELECT employee_id, card_number FROM employee_card")) {
+  if (cursor.selectQuery(result, "SELECT id, card_number FROM employee_card")) {
     Serial.print("Found ");
     Serial.print(result.size());
     Serial.println(" employee records");
