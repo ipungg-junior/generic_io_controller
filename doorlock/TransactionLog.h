@@ -10,7 +10,7 @@ struct TransactionEntry {
 
 class TransactionLog {
 public:
-    TransactionLog(int eepromSize = 512, int maxLogs = 5);
+    TransactionLog(int eepromSize = 512, int maxLogs = 25);
 
     void begin();
 

@@ -80,7 +80,6 @@ void setup()
   // Setup MySQL connection (example configuration)
   if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock_controller")) {
     Serial.println("Connected to MySQL database");
-    Serial.println(setDatetime(mysql));
   } else {
     Serial.println("Failed to connect to MySQL database");
   }
@@ -97,7 +96,7 @@ void setup()
       entry = logger.get(i);
       Serial.print("Log #"); Serial.print(i);
       Serial.print(" ID: "); Serial.print(entry.id);
-      Serial.print(" UID: "); Serial.print(entry.uid);
+      Serial.print(" UID: "); Serial.println(entry.uid);
   }
   setDatetime(mysql);
   // Fetch employee for cache
@@ -582,7 +581,7 @@ void fetchWishlist(){
 
   // SELECT from DB all record table 'whitelisted_ips' field 'whitelist_ip'
   QueryResult result;
-  if (mysql.selectQuery(result, "SELECT whitelist_ip FROM whitelisted_ips")) {
+  if (mysql.selectQuery(result, "SELECT whitelist_ip FROM whitelisted_ips WHERE is_active=1")) {
     dynamicWhitelistCount = result.size();
     if (dynamicWhitelistCount > 0) {
       dynamicWhitelist = new IPAddress[dynamicWhitelistCount];
