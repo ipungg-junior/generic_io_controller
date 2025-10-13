@@ -78,12 +78,15 @@ void setup()
   pinController.setPinAsInput(14);
   
   // Setup MySQL connection (example configuration)
-  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock_dev")) {
+  if (mysql.connect(mysql_address, 3306, "uprod", "P@ssw0rd*1", "doorlock_controller")) {
     Serial.println("Connected to MySQL database");
     Serial.println(setDatetime(mysql));
   } else {
     Serial.println("Failed to connect to MySQL database");
   }
+
+  // set whitelist IP
+  fetchWishlist();
 
   // Wiegand scanner RFID setup
   wg.begin(16, 17);
