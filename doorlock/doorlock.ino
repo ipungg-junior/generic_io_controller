@@ -175,7 +175,7 @@ void loop()
   
 }
 
-void gpioHandling(EthernetClient& client, const String& path, const String& body) 
+void gpioHandling(EthernetClient& client, const String& path, const String& body)
 {
   Parser parser(body);
 
@@ -346,7 +346,7 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
         client.print("{\"status\":true,");
         client.print("\"message\":\"Wiegand timeout\"}");
         break;
-      } 
+      }
       else {
 
         if (wg.available()){
@@ -388,24 +388,23 @@ void coreHandling(EthernetClient& client, const String& path, const String& body
   }
 }
 
-bool validateCardId(String cardNumber) 
+bool validateCardId(String cardNumber)
 {
-
-  // Validate from cache map first, query later if not found
-
-  for (int i = 0; i < cache_count; i++) {
-    if (cache_card[i].cardNumber == cardNumber) {
-      // Found in cache - use it
-      Serial.println("Found cache");
-      entry.id = cache_card[i].employeeId;
-      snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
-      logger.add(entry);
-      // Insert transaction by card
-      if (mysql.queryf("CALL InsertCardData('%d', '%s')", cache_card[i].employeeId, cardNumber)) {}
-      mysql.closeCursor();
-      return true;
-    }
-  }
+   // Validate from cache map first, query later if not found
+   for (int i = 0; i < cache_count; i++) {
+     if (cache_card[i].cardNumber == cardNumber) {
+       // Found in cache - use it
+       Serial.println("Found cache");
+       entry.id = cache_card[i].employeeId;
+       snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
+       entry.timestamp = time(NULL);
+       logger.add(entry);
+       // Insert transaction by card
+       if (mysql.queryf("CALL InsertCardData('%d', '%s')", cache_card[i].employeeId, cardNumber)) {}
+       mysql.closeCursor();
+       return true;
+     }
+   }
 
   QueryResult result;
   if (mysql.selectQueryf(result, "SELECT employee_card.id, employee.name FROM employee_card JOIN employee ON employee.id = employee_card.employee_id WHERE employee_card.card_number = '%s'", cardNumber)) {
@@ -425,6 +424,7 @@ bool validateCardId(String cardNumber)
     }
     entry.id = id.toInt();
     snprintf(entry.uid, sizeof(entry.uid), cardNumber.c_str());
+    entry.timestamp = time(NULL);
     logger.add(entry);
     // Insert transaction by card
     if (mysql.queryf("CALL InsertCardData('%d', '%s')", id.toInt(), cardNumber)) {}

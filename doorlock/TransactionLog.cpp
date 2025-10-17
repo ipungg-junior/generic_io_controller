@@ -46,6 +46,7 @@ TransactionEntry TransactionLog::get(uint8_t index) const {
     if (index >= _count) {
         entry.id = 0;
         entry.uid[0] = '\0';
+        entry.timestamp = 0;
         return entry;
     }
 
@@ -65,7 +66,7 @@ void TransactionLog::clear() {
     saveHeader();
 
     // Optional: clear EEPROM logs
-    TransactionEntry emptyEntry = {0, ""};
+    TransactionEntry emptyEntry = {0, "", 0};
     for (int i = 0; i < _maxLogs; i++) {
         int addr = _logStartAddr + (i * sizeof(TransactionEntry));
         EEPROM.put(addr, emptyEntry);

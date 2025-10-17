@@ -2,10 +2,12 @@
 #define TRANSACTIONLOG_H
 
 #include <EEPROM.h>
+#include <time.h>
 
 struct TransactionEntry {
     uint16_t id;
     char uid[9];  // 8 digit + null terminator
+    time_t timestamp;
 };
 
 class TransactionLog {
